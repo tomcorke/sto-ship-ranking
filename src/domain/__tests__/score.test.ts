@@ -166,6 +166,33 @@ describe("scoreShip", () => {
     expect(breakdown).toMatchSnapshot();
   });
 
+  it("curated trait scores differently than a non-curated trait with the same summary", () => {
+    // Emergency Weapon Cycle is in the override table; "Fake Made Up Trait"
+    // is not. We give them the same summary so keyword scanning can't be
+    // responsible for any difference - only the curated lookup should fire
+    // for the covered name.
+    const summary = "on EP2W: -weapon cost, +haste";
+    const covered = makeShip({
+      trait: { name: "Emergency Weapon Cycle", summary, url: "" },
+    });
+    const uncovered = makeShip({
+      trait: { name: "Fake Made Up Trait", summary, url: "" },
+    });
+    const coveredTrait = scoreShip(covered, ZERO_STATS).categories.find((c) => c.key === "trait")!;
+    const uncoveredTrait = scoreShip(uncovered, ZERO_STATS).categories.find(
+      (c) => c.key === "trait",
+    )!;
+    expect(coveredTrait.detail.startsWith("curated:")).toBe(true);
+    expect(uncoveredTrait.detail.startsWith("keyword:")).toBe(true);
+    expect(coveredTrait.points).not.toBeCloseTo(uncoveredTrait.points, 3);
+  });
+
+  it("trait detail reports 'none' when ship has no trait", () => {
+    const ship = makeShip({ trait: null });
+    const detail = scoreShip(ship, ZERO_STATS).categories.find((c) => c.key === "trait")!.detail;
+    expect(detail).toBe("none");
+  });
+
   it("scoreShip with a zeroed config produces a total of 0", () => {
     const zeroed: ScoringConfig = {
       weapons: { fore: 0, aft: 0, dhcBonus: 0, expBonus: 0 },

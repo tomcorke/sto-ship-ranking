@@ -8,6 +8,7 @@
     "build": "tsc && vp build",
     "preview": "vp preview",
     "data:fetch": "node --experimental-strip-types scripts/fetch-data.ts",
+    "trait-audit": "node --experimental-strip-types scripts/trait-audit.ts",
     "lint": "vp lint",
     "typecheck": "tsc --noEmit",
     "test": "vp test",
