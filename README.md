@@ -43,7 +43,8 @@ pnpm run preview   # preview the production build
 
 Ship data comes from [Fleffle's T6 Ship List v2](https://docs.google.com/spreadsheets/d/1SSsxWmE8Oz35D6MvLheFNUfhWerHNkUGOGtjxLlrTuA/edit)
 (Google Sheet, public, maintained by `@vanderben`). A CSV snapshot is
-committed at `data/ships.csv`.
+committed at `public/ships.csv` and fetched by the SPA at runtime (so it
+isn't inlined into the JS bundle).
 
 Refresh the snapshot with:
 
@@ -57,11 +58,13 @@ Full data source notes, schema, and caveats are in [`data/README.md`](./data/REA
 
 ```
 .
-├── data/               # ship data snapshot + schema docs
+├── data/               # data-source schema docs + trait overrides
 │   ├── README.md
-│   └── ships.csv
+│   └── trait-overrides.json
+├── public/             # static assets served at the site root
+│   └── ships.csv       # ship data snapshot, fetched by the SPA at runtime
 ├── scripts/            # maintenance scripts
-│   └── fetch-data.ts   # refreshes data/ships.csv from the upstream Sheet
+│   └── fetch-data.ts   # refreshes public/ships.csv from the upstream Sheet
 ├── src/                # React + TS SPA
 │   ├── App.tsx
 │   ├── main.tsx

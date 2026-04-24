@@ -1,6 +1,6 @@
 /**
  * Fetch the latest `Ships` tab from Fleffle's Sortable/Filterable T6 Ship List v2
- * and write it to data/ships.csv.
+ * and write it to public/ships.csv (served at runtime by the SPA).
  *
  * Usage: pnpm run data:fetch
  *
@@ -17,7 +17,7 @@ const SHEET_TAB = "Ships";
 const EXPORT_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_TAB)}`;
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const outPath = resolve(repoRoot, "data", "ships.csv");
+const outPath = resolve(repoRoot, "public", "ships.csv");
 
 async function main() {
   console.log(`Fetching ${EXPORT_URL}`);
