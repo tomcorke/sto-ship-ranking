@@ -91,11 +91,6 @@ header p {
   color: var(--text);
 }
 
-.disclaimer-close:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
 .layout {
   display: grid;
   grid-template-columns: 260px 1fr;
@@ -191,11 +186,6 @@ input[type="search"] {
   color: var(--accent);
 }
 
-.chip:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
 .filters-summary {
   display: flex;
   justify-content: space-between;
@@ -236,16 +226,6 @@ input[type="search"] {
 
 .active-chip:hover {
   background: var(--bg);
-}
-
-.active-chip:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.checkboxes input[type="checkbox"]:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 .checkboxes {
@@ -360,7 +340,8 @@ input[type="search"] {
 .table-wrap {
   border: 1px solid var(--border);
   border-radius: 8px;
-  overflow: hidden;
+  overflow: auto;
+  max-height: calc(100vh - 10rem);
   background: var(--surface);
 }
 
@@ -370,9 +351,15 @@ input[type="search"] {
   font-size: 0.85rem;
 }
 
-.ship-table th,
-.ship-table td {
+.ship-table th {
   padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.ship-table td {
+  padding: 0.28rem 0.55rem;
   border-bottom: 1px solid var(--border);
   text-align: left;
   white-space: nowrap;
@@ -382,6 +369,7 @@ input[type="search"] {
   background: var(--surface-2);
   position: sticky;
   top: 0;
+  z-index: 2;
   font-weight: 600;
   user-select: none;
 }
@@ -411,25 +399,50 @@ input[type="search"] {
   color: var(--accent);
 }
 
-.ship-table th.sortable .sort-btn:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-}
-
 .ship-table tbody tr {
   cursor: pointer;
 }
 
-.ship-table tbody tr:hover {
+.ship-table tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--surface, #1a1d24) 50%, transparent);
+}
+
+.ship-table tbody tr:hover td {
   background: var(--surface-2);
 }
 
-.ship-table tr.row-selected {
+.ship-table tr.row-selected td {
   background: var(--accent-bg);
 }
 
-.ship-table tr.row-selected:hover {
+.ship-table tr.row-selected:hover td {
   background: var(--accent-bg);
+}
+
+.ship-table td.name-col,
+.ship-table th.name-col {
+  position: sticky;
+  left: 0;
+  background: var(--bg);
+  z-index: 1;
+}
+
+.ship-table thead th.name-col {
+  z-index: 3;
+  background: var(--surface-2);
+}
+
+.ship-table tbody tr:nth-child(even) td.name-col {
+  background: color-mix(in srgb, var(--surface, #1a1d24) 50%, var(--bg));
+}
+
+.ship-table tbody tr:hover td.name-col {
+  background: var(--surface-2);
+}
+
+.ship-table tr.row-selected td.name-col,
+.ship-table tr.row-selected:hover td.name-col {
+  background: color-mix(in srgb, var(--accent-bg) 100%, var(--bg));
 }
 
 .ship-table td.score {
@@ -471,11 +484,6 @@ input[type="search"] {
 
 .owned-toggle:hover {
   background: var(--surface-2);
-}
-
-.owned-toggle:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 .ship-name {
@@ -560,4 +568,33 @@ button.link:hover {
 
 .app-footer a {
   color: var(--accent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent, #6ab7ff);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.chip:focus-visible,
+.sort-btn:focus-visible,
+.owned-toggle:focus-visible {
+  outline-offset: 1px;
+}
+
+@media (pointer: coarse) {
+  .chip,
+  .active-chip,
+  .owned-toggle,
+  .disclaimer-close {
+    min-height: 44px;
+    padding: 0.55rem 0.9rem;
+    font-size: 0.9rem;
+  }
+  .chips {
+    gap: 0.5rem;
+  }
+  .sort-btn {
+    min-height: 44px;
+  }
 }
