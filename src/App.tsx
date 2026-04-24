@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ships, scores } from "./data/shipsData.ts";
+import { loadDataset, type Dataset } from "./data/shipsData.ts";
 import { ActiveFilters, FiltersPanel } from "./components/Filters.tsx";
 import { ShipTable } from "./components/ShipTable.tsx";
 import { Comparison } from "./components/Comparison.tsx";
@@ -17,6 +17,11 @@ const readDisclaimerDismissed = (): boolean => {
   }
 };
 
+type LoadState =
+  | { status: "loading" }
+  | { status: "ready"; dataset: Dataset }
+  | { status: "error"; error: Error };
+
 export default function App() {
   const [filters, setFilters] = useState(() => deserialiseState(window.location.hash).filters);
   const [selected, setSelected] = useState<Set<number>>(
@@ -24,6 +29,28 @@ export default function App() {
   );
   const [disclaimerDismissed, setDisclaimerDismissed] = useState(readDisclaimerDismissed);
   const [owned, setOwned] = useState<Set<number>>(loadOwned);
+  const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
+  const [retryToken, setRetryToken] = useState(0);
+
+  // Kick off dataset load on mount / retry.
+  useEffect(() => {
+    let cancelled = false;
+    setLoadState({ status: "loading" });
+    loadDataset().then(
+      (dataset) => {
+        if (!cancelled) setLoadState({ status: "ready", dataset });
+      },
+      (err: unknown) => {
+        if (!cancelled) {
+          const error = err instanceof Error ? err : new Error(String(err));
+          setLoadState({ status: "error", error });
+        }
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [retryToken]);
 
   // Write back to the hash on state changes (replaceState, no history entries).
   useEffect(() => {
@@ -32,14 +59,18 @@ export default function App() {
     window.history.replaceState(null, "", url);
   }, [filters, selected]);
 
-  const filtered = useMemo(() => applyFilters(ships, filters, owned), [filters, owned]);
+  const ships = loadState.status === "ready" ? loadState.dataset.ships : [];
+  const scores =
+    loadState.status === "ready" ? loadState.dataset.scores : (new Map() as Dataset["scores"]);
 
-  const factions = useMemo(() => uniqueValues(ships, (s) => s.faction), []);
-  const sources = useMemo(() => uniqueValues(ships, (s) => s.source), []);
-  const shipTypes = useMemo(() => uniqueValues(ships, (s) => s.typeSimplified), []);
-  const careers = useMemo(() => uniqueValues(ships, (s) => s.career || ""), []);
+  const filtered = useMemo(() => applyFilters(ships, filters, owned), [ships, filters, owned]);
 
-  const selectedShips = useMemo(() => ships.filter((s) => selected.has(s.id)), [selected]);
+  const factions = useMemo(() => uniqueValues(ships, (s) => s.faction), [ships]);
+  const sources = useMemo(() => uniqueValues(ships, (s) => s.source), [ships]);
+  const shipTypes = useMemo(() => uniqueValues(ships, (s) => s.typeSimplified), [ships]);
+  const careers = useMemo(() => uniqueValues(ships, (s) => s.career || ""), [ships]);
+
+  const selectedShips = useMemo(() => ships.filter((s) => selected.has(s.id)), [ships, selected]);
 
   const toggleSelect = (id: number) => {
     setSelected((prev) => {
@@ -69,13 +100,15 @@ export default function App() {
     }
   };
 
+  const isReady = loadState.status === "ready";
+  const shipCountLabel = isReady ? `${ships.length} T6 ships.` : "Loading ships...";
+
   return (
     <main className="app">
       <header>
         <h1>STO Ship Ranking</h1>
         <p>
-          Filter, compare, and rank Star Trek Online starships. {ships.length} T6 ships. Data
-          courtesy of{" "}
+          Filter, compare, and rank Star Trek Online starships. {shipCountLabel} Data courtesy of{" "}
           <a
             href="https://docs.google.com/spreadsheets/d/1SSsxWmE8Oz35D6MvLheFNUfhWerHNkUGOGtjxLlrTuA/edit"
             target="_blank"
@@ -104,38 +137,55 @@ export default function App() {
         </div>
       )}
 
-      <div className="layout">
-        <FiltersPanel
-          filters={filters}
-          factions={factions}
-          sources={sources}
-          shipTypes={shipTypes}
-          careers={careers}
-          onChange={setFilters}
-          totalMatching={filtered.length}
-          totalAll={ships.length}
-        />
-
-        <div className="main-col">
-          <ActiveFilters filters={filters} onChange={setFilters} />
-          <Comparison
-            ships={selectedShips}
-            scores={scores}
-            onRemove={toggleSelect}
-            onClear={() => setSelected(new Set())}
-            owned={owned}
-            onToggleOwned={toggleOwned}
-          />
-          <ShipTable
-            ships={filtered}
-            scores={scores}
-            selected={selected}
-            onToggleSelect={toggleSelect}
-            owned={owned}
-            onToggleOwned={toggleOwned}
-          />
+      {loadState.status === "loading" && (
+        <div className="loading" role="status" aria-live="polite">
+          Loading ships...
         </div>
-      </div>
+      )}
+
+      {loadState.status === "error" && (
+        <div className="loading loading-error" role="alert">
+          <p>Failed to load ship data: {loadState.error.message}</p>
+          <button type="button" onClick={() => setRetryToken((t) => t + 1)}>
+            Retry
+          </button>
+        </div>
+      )}
+
+      {isReady && (
+        <div className="layout">
+          <FiltersPanel
+            filters={filters}
+            factions={factions}
+            sources={sources}
+            shipTypes={shipTypes}
+            careers={careers}
+            onChange={setFilters}
+            totalMatching={filtered.length}
+            totalAll={ships.length}
+          />
+
+          <div className="main-col">
+            <ActiveFilters filters={filters} onChange={setFilters} />
+            <Comparison
+              ships={selectedShips}
+              scores={scores}
+              onRemove={toggleSelect}
+              onClear={() => setSelected(new Set())}
+              owned={owned}
+              onToggleOwned={toggleOwned}
+            />
+            <ShipTable
+              ships={filtered}
+              scores={scores}
+              selected={selected}
+              onToggleSelect={toggleSelect}
+              owned={owned}
+              onToggleOwned={toggleOwned}
+            />
+          </div>
+        </div>
+      )}
 
       <footer className="app-footer">
         <p>

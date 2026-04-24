@@ -265,7 +265,7 @@ describe("parseShips", () => {
     const path = await import("node:path");
     const url = await import("node:url");
     const here = path.dirname(url.fileURLToPath(import.meta.url));
-    const csv = await fs.readFile(path.join(here, "..", "..", "..", "data", "ships.csv"), "utf8");
+    const csv = await fs.readFile(path.join(here, "..", "..", "..", "public", "ships.csv"), "utf8");
     const ships = parseShips(csv);
     expect(ships.length).toBeGreaterThan(100);
     // Every ship should have an integer id and a non-empty name.

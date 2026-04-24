@@ -18,13 +18,15 @@ pnpm run data:fetch
 
 See `scripts/fetch-data.ts`. The script downloads the `Ships` tab as CSV via
 the Google Sheets `gviz` export endpoint (no auth required, sheet is public)
-and writes `data/ships.csv`.
+and writes `public/ships.csv` (Vite serves `public/` at the site root, so the
+SPA fetches `<base>/ships.csv` at runtime rather than inlining the CSV into
+the JS bundle).
 
 ### Snapshot provenance
 
-`data/ships.csv` in this repo is the most recent committed snapshot. The upstream
-spreadsheet is updated by Fleffle as new ships ship. Re-run the fetch script
-periodically and commit the diff.
+`public/ships.csv` in this repo is the most recent committed snapshot. The
+upstream spreadsheet is updated by Fleffle as new ships ship. Re-run the fetch
+script periodically and commit the diff.
 
 ### Schema
 
