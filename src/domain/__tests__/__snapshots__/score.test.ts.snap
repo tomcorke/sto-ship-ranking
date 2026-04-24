@@ -1,0 +1,57 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`scoreShip > produces a stable category breakdown for a reference hand-built ship 1`] = `
+{
+  "categories": [
+    {
+      "detail": "5F/3A +DHC +Exp",
+      "key": "weapons",
+      "label": "Weapons",
+      "points": 13,
+    },
+    {
+      "detail": "5T/3E/3S/2U",
+      "key": "consoles",
+      "label": "Consoles",
+      "points": 13.6,
+    },
+    {
+      "detail": "Tac 4/Eng 5/Sci 2, 1 spec",
+      "key": "boffAbilities",
+      "label": "BOff abilities",
+      "points": 5.3500000000000005,
+    },
+    {
+      "detail": "dmg 4, util 1",
+      "key": "trait",
+      "label": "Starship trait",
+      "points": 5.8,
+    },
+    {
+      "detail": "1 bay",
+      "key": "hangars",
+      "label": "Hangars",
+      "points": 3,
+    },
+    {
+      "detail": "cloak, flank 50%",
+      "key": "misc",
+      "label": "Misc features",
+      "points": 3,
+    },
+    {
+      "detail": "2 auras",
+      "key": "cruiserCommands",
+      "label": "Cruiser commands",
+      "points": 1,
+    },
+    {
+      "detail": "none",
+      "key": "scienceFeatures",
+      "label": "Science features",
+      "points": 0,
+    },
+  ],
+  "total": 44.8,
+}
+`;
