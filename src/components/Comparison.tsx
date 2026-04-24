@@ -29,6 +29,31 @@ const ROLE_LONG: Record<Role, string> = {
   support: "Support",
 };
 
+const SCORE_ROW_LABEL: Record<RoleView, string> = {
+  overall: "Total score",
+  dps: "DPS score",
+  tank: "Tank score",
+  sci: "Sci score",
+  support: "Support score",
+};
+
+interface ScoreView {
+  total: number;
+  categories: { key: string; label: string; points: number }[];
+}
+
+// Resolve the score + categories for the active role tab. Falls back to
+// the overall breakdown when roleView is "overall" or when a role overlay
+// is missing (e.g. configs without the `roles` overlay).
+function viewFor(bd: ScoreBreakdown | undefined, roleView: RoleView): ScoreView {
+  if (!bd) return { total: 0, categories: [] };
+  if (roleView !== "overall" && bd.roles) {
+    const rs = bd.roles[roleView];
+    return { total: rs.total, categories: rs.categories };
+  }
+  return { total: bd.total, categories: bd.categories };
+}
+
 interface RoleStripeCell {
   role: Role;
   value: number;
@@ -143,14 +168,8 @@ export function Comparison({
   onClear,
   owned,
   onToggleOwned,
-  roleView: _roleView,
+  roleView,
 }: Props) {
-  // roleView is threaded through but not directly consumed in Comparison
-  // today - the role stripe shows all four roles regardless of the
-  // selected tab. Kept in props to keep the contract consistent and to
-  // avoid unused-arg churn if the stripe later wants to highlight the
-  // active tab.
-  void _roleView;
   const [copied, setCopied] = useState(false);
   const [collapsed, setCollapsed] = useState(readCollapsed);
 
@@ -177,7 +196,7 @@ export function Comparison({
   };
 
   const compact = ships.length >= COMPACT_THRESHOLD;
-  const summary = summariseWinners(ships, scores);
+  const summary = summariseWinners(ships, scores, roleView);
 
   return (
     <section className={`comparison ${collapsed ? "is-collapsed" : "is-expanded"}`}>
@@ -232,6 +251,7 @@ export function Comparison({
               owned={owned}
               onToggleOwned={onToggleOwned}
               onRemove={onRemove}
+              roleView={roleView}
             />
           ) : (
             <FullTable
@@ -240,6 +260,7 @@ export function Comparison({
               owned={owned}
               onToggleOwned={onToggleOwned}
               onRemove={onRemove}
+              roleView={roleView}
             />
           )}
           {summary && (
@@ -281,14 +302,16 @@ function FullTable({
   owned,
   onToggleOwned,
   onRemove,
+  roleView,
 }: {
   ships: Ship[];
   scores: Map<number, ScoreBreakdown>;
   owned: Set<number>;
   onToggleOwned: (id: number) => void;
   onRemove: (id: number) => void;
+  roleView: RoleView;
 }) {
-  const sections = buildSections(ships, scores);
+  const sections = buildSections(ships, scores, roleView);
   const stripes = buildRoleStripes(ships, scores);
   return (
     <div className="comparison-table-wrap">
@@ -352,16 +375,23 @@ function CompactTable({
   owned,
   onToggleOwned,
   onRemove,
+  roleView,
 }: {
   ships: Ship[];
   scores: Map<number, ScoreBreakdown>;
   owned: Set<number>;
   onToggleOwned: (id: number) => void;
   onRemove: (id: number) => void;
+  roleView: RoleView;
 }) {
   const breakdowns = ships.map((s) => scores.get(s.id));
-  const catPoints = (bd: ScoreBreakdown | undefined, key: string): number =>
-    bd?.categories.find((c) => c.key === key)?.points ?? 0;
+  // Category lookup pulls from the active role overlay when roleView is
+  // non-overall (so DPS lights up Weapons, Tank lights up Defense, etc.);
+  // falls back to overall categories when no overlay is present.
+  const catPoints = (bd: ScoreBreakdown | undefined, key: string): number => {
+    const view = viewFor(bd, roleView);
+    return view.categories.find((c) => c.key === key)?.points ?? 0;
+  };
 
   const rowData = ships.map((s, i) => {
     const bd = breakdowns[i];
@@ -370,7 +400,7 @@ function CompactTable({
     return {
       ship: s,
       bd,
-      total: bd?.total ?? 0,
+      total: viewFor(bd, roleView).total,
       weapons: catPoints(bd, "weapons"),
       consoles: catPoints(bd, "consoles"),
       boff: catPoints(bd, "boffAbilities"),
@@ -562,15 +592,19 @@ function ComparisonRow({ row }: { row: Row }) {
   );
 }
 
-function buildSections(ships: Ship[], scores: Map<number, ScoreBreakdown>): Section[] {
+function buildSections(
+  ships: Ship[],
+  scores: Map<number, ScoreBreakdown>,
+  roleView: RoleView,
+): Section[] {
   const breakdowns = ships.map((s) => scores.get(s.id));
-  const scoreValues = breakdowns.map((b) => b?.total ?? 0);
+  const views = breakdowns.map((b) => viewFor(b, roleView));
+  const scoreValues = views.map((v) => v.total);
 
   const compKeys: string[] = [];
   const compLabels = new Map<string, string>();
-  for (const bd of breakdowns) {
-    if (!bd) continue;
-    for (const c of bd.categories) {
+  for (const view of views) {
+    for (const c of view.categories) {
       if (!compLabels.has(c.key)) {
         compLabels.set(c.key, c.label);
         compKeys.push(c.key);
@@ -579,8 +613,8 @@ function buildSections(ships: Ship[], scores: Map<number, ScoreBreakdown>): Sect
   }
 
   const componentRows: Row[] = compKeys.map((k) => {
-    const values = breakdowns.map((bd) => {
-      const c = bd?.categories.find((x) => x.key === k);
+    const values = views.map((view) => {
+      const c = view.categories.find((x) => x.key === k);
       if (!c) return 0;
       return c.points;
     });
@@ -600,7 +634,7 @@ function buildSections(ships: Ship[], scores: Map<number, ScoreBreakdown>): Sect
     rows: [
       {
         key: "score",
-        label: "Total score",
+        label: SCORE_ROW_LABEL[roleView],
         values: scoreValues,
         numeric: true,
         higherBetter: true,
