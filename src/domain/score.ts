@@ -1,3 +1,9 @@
+import {
+  DEFAULT_CONFIG,
+  type FleetStatAxis,
+  type FleetStats,
+  type ScoringConfig,
+} from "./scoringConfig.ts";
 import type { Ship } from "./ship.ts";
 
 export interface ScoreBreakdown {
@@ -6,26 +12,14 @@ export interface ScoreBreakdown {
     key: string;
     label: string;
     points: number;
+    weight: number;
     detail: string;
   }[];
 }
 
-// Universal consoles are worth more than career-locked slots.
-const CONSOLE_WEIGHTS = { tac: 1.0, eng: 1.0, sci: 1.0, uni: 1.3 } as const;
-
-// BOff ability count by career/spec, weighted. Tactical abilities weigh
-// slightly more since DPS builds are the usual optimization target.
-const ABILITY_WEIGHTS = {
-  tac: 1.1,
-  eng: 0.9,
-  sci: 0.9,
-  int: 1.0,
-  cmd: 1.0,
-  pil: 1.0,
-  tmp: 1.0,
-  mw: 1.05,
-} as const;
-
+// Trait keyword banks. Kept inline because the weights (not the keywords)
+// are the tuning surface for now; a curated per-trait override table is
+// planned for a later branch.
 const TRAIT_KEYWORDS_DAMAGE = [
   "damage",
   "critical",
@@ -62,95 +56,178 @@ const TRAIT_KEYWORDS_UTILITY = [
   "recharge",
 ];
 
-function traitScore(summary: string): { damage: number; utility: number } {
-  const s = summary.toLowerCase();
-  let damage = 0;
-  let utility = 0;
-  for (const kw of TRAIT_KEYWORDS_DAMAGE) if (s.includes(kw)) damage += 1;
-  for (const kw of TRAIT_KEYWORDS_UTILITY) if (s.includes(kw)) utility += 1;
-  return { damage: Math.min(damage, 5), utility: Math.min(utility, 5) };
+// Stem reduction: crude but enough to dedupe "heal" / "healing",
+// "damage" / "+dmg", "crit" / "critical" without pulling in a real
+// stemmer. Applied before matching so the final count is per-stem.
+function stem(kw: string): string {
+  const base = kw.toLowerCase().replace(/\s+/g, " ").trim();
+  if (base === "crit" || base === "critical") return "crit";
+  if (base === "+dmg" || base === "damage") return "damage";
+  if (base === "heal") return "heal";
+  // strip trailing "s" / "ing" / "ed" to fold simple inflections
+  return base.replace(/(ing|ed|s)$/i, "");
 }
 
-export function scoreShip(ship: Ship): ScoreBreakdown {
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function hasKeyword(summary: string, kw: string): boolean {
+  // Word-boundary match, case-insensitive. Falls back to substring for
+  // keywords that contain non-word chars like "+dmg" where \b would not
+  // sit against a `+`.
+  const hasWordChar = /\w/.test(kw);
+  if (!hasWordChar) return summary.toLowerCase().includes(kw.toLowerCase());
+  const re = new RegExp(`\\b${escapeRegExp(kw)}\\b`, "i");
+  return re.test(summary);
+}
+
+function countStems(summary: string, keywords: readonly string[]): number {
+  const hits = new Set<string>();
+  for (const kw of keywords) {
+    if (hasKeyword(summary, kw)) hits.add(stem(kw));
+  }
+  return hits.size;
+}
+
+function traitScore(summary: string, config: ScoringConfig): { damage: number; utility: number } {
+  const cap = config.trait.cap;
+  const damage = Math.min(countStems(summary, TRAIT_KEYWORDS_DAMAGE), cap);
+  const utility = Math.min(countStems(summary, TRAIT_KEYWORDS_UTILITY), cap);
+  return { damage, utility };
+}
+
+// --- Fleet statistics ---------------------------------------------------
+
+function meanStdev(values: number[]): FleetStatAxis {
+  if (values.length === 0) return { mean: 0, stdev: 0 };
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  const variance = values.reduce((acc, v) => acc + (v - mean) * (v - mean), 0) / values.length;
+  return { mean, stdev: Math.sqrt(variance) };
+}
+
+export function computeFleetStats(ships: Ship[]): FleetStats {
+  return {
+    hull: meanStdev(ships.map((s) => s.hull)),
+    shieldMod: meanStdev(ships.map((s) => s.shieldMod)),
+    defenseHullMod: meanStdev(ships.map((s) => s.defenseHullMod)),
+    turn: meanStdev(ships.map((s) => s.mobility.turn)),
+    impulseMod: meanStdev(ships.map((s) => s.mobility.impulseMod)),
+    inertia: meanStdev(ships.map((s) => s.mobility.inertia)),
+    powerBonusTotal: meanStdev(
+      ships.map(
+        (s) =>
+          s.powerBonus.weapons + s.powerBonus.shields + s.powerBonus.engines + s.powerBonus.aux,
+      ),
+    ),
+  };
+}
+
+function z(value: number, axis: FleetStatAxis): number {
+  if (axis.stdev === 0) return 0;
+  const raw = (value - axis.mean) / axis.stdev;
+  // Clamp to [-2, 2] so extreme outliers do not swing totals.
+  if (raw > 2) return 2;
+  if (raw < -2) return -2;
+  return raw;
+}
+
+// --- Scoring ------------------------------------------------------------
+
+export function scoreShip(
+  ship: Ship,
+  stats: FleetStats,
+  config: ScoringConfig = DEFAULT_CONFIG,
+): ScoreBreakdown {
   const cats: ScoreBreakdown["categories"] = [];
 
+  // Weapons ---------------------------------------------------------------
   const w = ship.weapons;
-  const weaponPts = w.fore * 1.5 + w.aft * 1.0 + (w.dhc ? 1.5 : 0) + (w.experimental ? 1.0 : 0);
+  const weaponPts =
+    w.fore * config.weapons.fore +
+    w.aft * config.weapons.aft +
+    (w.dhc ? config.weapons.dhcBonus : 0) +
+    (w.experimental ? config.weapons.expBonus : 0);
   cats.push({
     key: "weapons",
     label: "Weapons",
     points: weaponPts,
+    weight: 1,
     detail: `${w.fore}F/${w.aft}A${w.dhc ? " +DHC" : ""}${w.experimental ? " +Exp" : ""}`,
   });
 
+  // Consoles --------------------------------------------------------------
   const c = ship.consoles;
   const consolePts =
-    c.tac * CONSOLE_WEIGHTS.tac +
-    c.eng * CONSOLE_WEIGHTS.eng +
-    c.sci * CONSOLE_WEIGHTS.sci +
-    c.uni * CONSOLE_WEIGHTS.uni;
+    c.tac * config.consoles.tac +
+    c.eng * config.consoles.eng +
+    c.sci * config.consoles.sci +
+    c.uni * config.consoles.universal;
   cats.push({
     key: "consoles",
     label: "Consoles",
     points: consolePts,
+    weight: 1,
     detail: `${c.tac}T/${c.eng}E/${c.sci}S/${c.uni}U`,
   });
 
+  // BOff abilities --------------------------------------------------------
   const a = ship.maxAbility;
-  const abilityPts =
-    a.tac * ABILITY_WEIGHTS.tac +
-    a.eng * ABILITY_WEIGHTS.eng +
-    a.sci * ABILITY_WEIGHTS.sci +
-    a.int * ABILITY_WEIGHTS.int +
-    a.cmd * ABILITY_WEIGHTS.cmd +
-    a.pil * ABILITY_WEIGHTS.pil +
-    a.tmp * ABILITY_WEIGHTS.tmp +
-    a.mw * ABILITY_WEIGHTS.mw;
+  const specPool = a.int + a.cmd + a.pil + a.tmp + a.mw;
+  const abilityRaw =
+    a.tac * config.ability.tac +
+    a.eng * config.ability.eng +
+    a.sci * config.ability.sci +
+    specPool * config.ability.spec;
+  const abilityPts = abilityRaw * config.ability.scale;
   cats.push({
     key: "boffAbilities",
     label: "BOff abilities",
-    points: abilityPts * 0.5,
+    points: abilityPts,
+    weight: config.ability.scale,
     detail:
       `Tac ${a.tac}/Eng ${a.eng}/Sci ${a.sci}` +
       (ship.specCount > 0 ? `, ${ship.specCount} spec${ship.specCount > 1 ? "s" : ""}` : ""),
   });
 
-  const trait = ship.trait ? traitScore(ship.trait.summary) : { damage: 0, utility: 0 };
-  const traitPts = trait.damage * 1.2 + trait.utility * 1.0;
+  // Trait -----------------------------------------------------------------
+  const trait = ship.trait ? traitScore(ship.trait.summary, config) : { damage: 0, utility: 0 };
+  const traitPts = trait.damage * config.trait.damage + trait.utility * config.trait.utility;
   cats.push({
     key: "trait",
     label: "Starship trait",
     points: traitPts,
+    weight: 1,
     detail: ship.trait ? `dmg ${trait.damage}, util ${trait.utility}` : "none",
   });
 
-  const hangarPts = ship.hangars * 3.0;
-  if (ship.hangars > 0) {
-    cats.push({
-      key: "hangars",
-      label: "Hangars",
-      points: hangarPts,
-      detail: `${ship.hangars} bay${ship.hangars > 1 ? "s" : ""}`,
-    });
-  } else {
-    cats.push({
-      key: "hangars",
-      label: "Hangars",
-      points: 0,
-      detail: "none",
-    });
-  }
+  // Hangars (diminishing returns, capped at 3 bays) ----------------------
+  const bays = Math.min(ship.hangars, 3);
+  let hangarPts = 0;
+  if (bays >= 1) hangarPts += config.hangar.first;
+  if (bays >= 2) hangarPts += config.hangar.second;
+  if (bays >= 3) hangarPts += config.hangar.thirdPlus;
+  cats.push({
+    key: "hangars",
+    label: "Hangars",
+    points: hangarPts,
+    weight: 1,
+    detail: ship.hangars > 0 ? `${ship.hangars} bay${ship.hangars > 1 ? "s" : ""}` : "none",
+  });
 
+  // Misc features ---------------------------------------------------------
   const mf = ship.miscFeatures;
+  const flankingMult = mf.flankingPct >= 50 ? 2 : mf.flankingPct > 0 ? 1 : 0;
   const miscPts =
-    (mf.cloak ? 1.0 : 0) +
-    (mf.flankingPct >= 50 ? 2.0 : mf.flankingPct > 0 ? 1.0 : 0) +
-    (mf.wingmen ? 1.5 : 0) +
-    (mf.singularity ? 0.5 : 0);
+    (mf.cloak ? config.misc.cloak : 0) +
+    flankingMult * config.misc.flanking +
+    (mf.wingmen ? config.misc.wingmen : 0) +
+    (mf.singularity ? config.misc.singularity : 0);
   cats.push({
     key: "misc",
     label: "Misc features",
     points: miscPts,
+    weight: 1,
     detail:
       [
         mf.cloak ? "cloak" : null,
@@ -162,35 +239,94 @@ export function scoreShip(ship: Ship): ScoreBreakdown {
         .join(", ") || "none",
   });
 
+  // Cruiser commands ------------------------------------------------------
   const cc = ship.cruiserCommands;
   const ccCount =
     (cc.weapon ? 1 : 0) + (cc.shield ? 1 : 0) + (cc.engine ? 1 : 0) + (cc.threat ? 1 : 0);
   cats.push({
     key: "cruiserCommands",
     label: "Cruiser commands",
-    points: ccCount * 0.5,
+    points: ccCount * config.cruiserCommand,
+    weight: config.cruiserCommand,
     detail: ccCount > 0 ? `${ccCount} aura${ccCount > 1 ? "s" : ""}` : "none",
   });
 
+  // Science features ------------------------------------------------------
   const sf = ship.scienceFeatures;
-  const sciCount =
-    (sf.secondaryDeflector ? 1 : 0) +
-    (sf.subsystemTargeting ? 1 : 0) +
-    (sf.sensorAnalysis ? 1 : 0) +
-    (sf.tacMode ? 1 : 0);
+  const sciPts =
+    (sf.secondaryDeflector ? config.sciFeature.secondaryDeflector : 0) +
+    (sf.sensorAnalysis ? config.sciFeature.sensorAnalysis : 0) +
+    (sf.subsystemTargeting ? config.sciFeature.subsystemTargeting : 0) +
+    (sf.tacMode ? config.sciFeature.tacMode : 0);
+  const sciFeatureKeys = [
+    sf.secondaryDeflector ? "sec.def" : null,
+    sf.sensorAnalysis ? "sensor" : null,
+    sf.subsystemTargeting ? "subsys" : null,
+    sf.tacMode ? "tac-mode" : null,
+  ].filter(Boolean);
   cats.push({
     key: "scienceFeatures",
     label: "Science features",
-    points: sciCount * 0.75,
-    detail: sciCount > 0 ? `${sciCount} feature${sciCount > 1 ? "s" : ""}` : "none",
+    points: sciPts,
+    weight: 1,
+    detail: sciFeatureKeys.length > 0 ? sciFeatureKeys.join(", ") : "none",
+  });
+
+  // Defense (z-scored) ----------------------------------------------------
+  const zHull = z(ship.hull, stats.hull);
+  const zShield = z(ship.shieldMod, stats.shieldMod);
+  const zDefMod = z(ship.defenseHullMod, stats.defenseHullMod);
+  const defensePts =
+    zHull * config.defense.hull +
+    zShield * config.defense.shieldMod +
+    zDefMod * config.defense.defenseHullMod;
+  cats.push({
+    key: "defense",
+    label: "Defense",
+    points: defensePts,
+    weight: 1,
+    detail: `hull z${zHull.toFixed(2)}, shld z${zShield.toFixed(2)}, defMod z${zDefMod.toFixed(2)}`,
+  });
+
+  // Mobility (z-scored; inertia inverted) --------------------------------
+  const zTurn = z(ship.mobility.turn, stats.turn);
+  const zImp = z(ship.mobility.impulseMod, stats.impulseMod);
+  const zInertia = z(ship.mobility.inertia, stats.inertia);
+  const mobilityPts =
+    zTurn * config.mobility.turn +
+    zImp * config.mobility.impulseMod -
+    zInertia * config.mobility.inertiaPenalty;
+  cats.push({
+    key: "mobility",
+    label: "Mobility",
+    points: mobilityPts,
+    weight: 1,
+    detail: `turn z${zTurn.toFixed(2)}, imp z${zImp.toFixed(2)}, inert z${zInertia.toFixed(2)}`,
+  });
+
+  // Power bonus (z-scored total across 4 subsystems) --------------------
+  const pb = ship.powerBonus;
+  const pbTotal = pb.weapons + pb.shields + pb.engines + pb.aux;
+  const zPower = z(pbTotal, stats.powerBonusTotal);
+  const powerPts = zPower * config.power.perPoint;
+  cats.push({
+    key: "power",
+    label: "Power bonus",
+    points: powerPts,
+    weight: 1,
+    detail: `w${pb.weapons}/s${pb.shields}/e${pb.engines}/a${pb.aux} (z${zPower.toFixed(2)})`,
   });
 
   const total = cats.reduce((s, c) => s + c.points, 0);
   return { total: Math.round(total * 10) / 10, categories: cats };
 }
 
-export function scoreAll(ships: Ship[]): Map<number, ScoreBreakdown> {
+export function scoreAll(
+  ships: Ship[],
+  config: ScoringConfig = DEFAULT_CONFIG,
+): Map<number, ScoreBreakdown> {
+  const stats = computeFleetStats(ships);
   const m = new Map<number, ScoreBreakdown>();
-  for (const s of ships) m.set(s.id, scoreShip(s));
+  for (const s of ships) m.set(s.id, scoreShip(s, stats, config));
   return m;
 }
