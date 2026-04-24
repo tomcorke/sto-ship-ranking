@@ -161,8 +161,8 @@ export default function App() {
       {!disclaimerDismissed && (
         <div className="disclaimer" role="note">
           <span>
-            Scores are a rough heuristic - use as a starting point, not a verdict. Click the (?)
-            next to the Score column for the rubric breakdown.
+            Scores are a rough heuristic - use as a starting point, not a verdict. Click "Scoring
+            rubric" above the table to view or edit how scores are calculated.
           </span>
           <button
             type="button"

@@ -640,7 +640,7 @@ input[type="search"] {
 .ship-table thead th {
   background: var(--surface-2);
   position: sticky;
-  top: 0;
+  top: 2.6rem;
   z-index: 2;
   font-weight: 600;
   user-select: none;
@@ -945,16 +945,46 @@ button.link:hover {
   }
 }
 
+.role-tabs-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
 .role-tabs {
   display: flex;
   gap: 0.25rem;
-  padding: 0.4rem 0.4rem 0;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
-  position: sticky;
-  top: 0;
-  z-index: 3;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rubric-bar-btn {
+  margin-bottom: 0.3rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.rubric-bar-btn:hover,
+.rubric-bar-btn:focus-visible {
+  background: var(--accent);
+  color: var(--bg);
+  outline: none;
 }
 
 .role-tab {
