@@ -7,6 +7,7 @@ export interface Filters {
   sources: Set<string>;
   shipTypes: Set<string>;
   careers: Set<string>;
+  releaseYears: Set<string>;
   hangarsOnly: boolean;
   cloakOnly: boolean;
   ownedMode: OwnedMode;
@@ -18,6 +19,7 @@ export const emptyFilters = (): Filters => ({
   sources: new Set(),
   shipTypes: new Set(),
   careers: new Set(),
+  releaseYears: new Set(),
   hangarsOnly: false,
   cloakOnly: false,
   ownedMode: "all",
@@ -40,6 +42,7 @@ export function applyFilters(ships: Ship[], f: Filters, owned: Set<number>): Shi
     if (f.sources.size > 0 && !f.sources.has(s.source)) return false;
     if (f.shipTypes.size > 0 && !f.shipTypes.has(s.typeSimplified)) return false;
     if (f.careers.size > 0 && !f.careers.has(s.career || "")) return false;
+    if (f.releaseYears.size > 0 && !f.releaseYears.has(String(s.year))) return false;
     if (f.hangarsOnly && s.hangars <= 0) return false;
     if (f.cloakOnly && !s.miscFeatures.cloak) return false;
     if (!matchesOwnedMode(s.id, owned, f.ownedMode)) return false;

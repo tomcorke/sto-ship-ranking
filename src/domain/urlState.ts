@@ -38,6 +38,7 @@ export function serialiseState({ filters, selected }: UrlState): string {
   if (filters.careers.size > 0) parts.push(`career=${encodeSet(filters.careers)}`);
   if (filters.sources.size > 0) parts.push(`source=${encodeSet(filters.sources)}`);
   if (filters.shipTypes.size > 0) parts.push(`type=${encodeSet(filters.shipTypes)}`);
+  if (filters.releaseYears.size > 0) parts.push(`years=${encodeSet(filters.releaseYears)}`);
   if (filters.search) parts.push(`search=${encodeURIComponent(filters.search)}`);
   if (filters.hangarsOnly) parts.push(`hangarsOnly=1`);
   if (filters.cloakOnly) parts.push(`cloakOnly=1`);
@@ -73,6 +74,9 @@ export function deserialiseState(hash: string): UrlState {
         break;
       case "type":
         filters.shipTypes = decodeSet(value);
+        break;
+      case "years":
+        filters.releaseYears = decodeSet(value);
         break;
       case "search":
         filters.search = decodeURIComponent(value);

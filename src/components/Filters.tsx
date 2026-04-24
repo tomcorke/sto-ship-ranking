@@ -7,6 +7,7 @@ interface Props {
   sources: string[];
   shipTypes: string[];
   careers: string[];
+  releaseYears: string[];
   onChange: (f: Filters) => void;
   totalMatching: number;
   totalAll: number;
@@ -31,6 +32,7 @@ function countActive(f: Filters): number {
   if (f.careers.size > 0) n += f.careers.size;
   if (f.sources.size > 0) n += f.sources.size;
   if (f.shipTypes.size > 0) n += f.shipTypes.size;
+  if (f.releaseYears.size > 0) n += f.releaseYears.size;
   if (f.search.trim()) n += 1;
   if (f.hangarsOnly) n += 1;
   if (f.cloakOnly) n += 1;
@@ -50,6 +52,7 @@ export function FiltersPanel({
   sources,
   shipTypes,
   careers,
+  releaseYears,
   onChange,
   totalMatching,
   totalAll,
@@ -112,6 +115,13 @@ export function FiltersPanel({
         values={shipTypes}
         selected={filters.shipTypes}
         onToggle={(v) => onChange({ ...filters, shipTypes: toggleIn(filters.shipTypes, v) })}
+      />
+
+      <ChipGroup
+        label="Year"
+        values={releaseYears}
+        selected={filters.releaseYears}
+        onToggle={(v) => onChange({ ...filters, releaseYears: toggleIn(filters.releaseYears, v) })}
       />
 
       <ExclusiveChipGroup
@@ -178,6 +188,13 @@ export function ActiveFilters({ filters, onChange }: ActiveFiltersProps) {
       key: `type:${v}`,
       label: v || "-",
       onRemove: () => onChange({ ...filters, shipTypes: removeFrom(filters.shipTypes, v) }),
+    });
+  }
+  for (const v of filters.releaseYears) {
+    chips.push({
+      key: `year:${v}`,
+      label: v || "-",
+      onRemove: () => onChange({ ...filters, releaseYears: removeFrom(filters.releaseYears, v) }),
     });
   }
   if (filters.search.trim()) {

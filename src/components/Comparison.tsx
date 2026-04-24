@@ -198,7 +198,18 @@ function FullTable({
               return (
                 <th key={s.id}>
                   <div className="comp-ship-head">
-                    <span>{s.name}</span>
+                    <span className="ship-name">{s.name}</span>
+                    {s.wikiUrl && (
+                      <a
+                        href={s.wikiUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="ship-wiki-link"
+                        aria-label={`${s.name} on stowiki`}
+                      >
+                        ↗
+                      </a>
+                    )}
                     <button
                       type="button"
                       className="owned-toggle"
@@ -331,7 +342,18 @@ function CompactTable({
                   </button>
                 </td>
                 <td className="compact-name-col" title={s.name}>
-                  {s.name}
+                  <span className="ship-name">{s.name}</span>
+                  {s.wikiUrl && (
+                    <a
+                      href={s.wikiUrl}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="ship-wiki-link"
+                      aria-label={`${s.name} on stowiki`}
+                    >
+                      ↗
+                    </a>
+                  )}
                 </td>
                 <td className={isWinner("total", r.total) ? "winner total" : "total"}>
                   {r.total.toFixed(1)}
