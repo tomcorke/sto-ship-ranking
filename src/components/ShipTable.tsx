@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
 import type { Ship } from "../domain/ship.ts";
 import type { ScoreBreakdown } from "../domain/score.ts";
+import { ROLES, type Role } from "../domain/scoringConfig.ts";
+import { suggestRole } from "../domain/roleDetect.ts";
+import type { RoleView } from "../domain/urlState.ts";
 
 type SortKey =
   | "score"
@@ -19,6 +22,35 @@ interface Props {
   onToggleSelect: (id: number) => void;
   owned: Set<number>;
   onToggleOwned: (id: number) => void;
+  roleView: RoleView;
+  onRoleViewChange: (v: RoleView) => void;
+}
+
+const ROLE_LABEL: Record<RoleView, string> = {
+  overall: "Overall",
+  dps: "DPS",
+  tank: "Tank",
+  sci: "Sci",
+  support: "Support",
+};
+
+const SCORE_HEADER: Record<RoleView, string> = {
+  overall: "Score",
+  dps: "DPS Score",
+  tank: "Tank Score",
+  sci: "Sci Score",
+  support: "Support Score",
+};
+
+const ROLE_VIEWS: RoleView[] = ["overall", ...ROLES];
+
+// Pick the total that should be ranked by when a role tab is active.
+// Falls back to overall total when role data is missing (e.g. config
+// without the roles overlay).
+function scoreFor(bd: ScoreBreakdown | undefined, roleView: RoleView): number {
+  if (!bd) return 0;
+  if (roleView === "overall") return bd.total;
+  return bd.roles?.[roleView]?.total ?? bd.total;
 }
 
 export function ShipTable({
@@ -28,6 +60,8 @@ export function ShipTable({
   onToggleSelect,
   owned,
   onToggleOwned,
+  roleView,
+  onRoleViewChange,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("score");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -35,11 +69,11 @@ export function ShipTable({
   const sorted = useMemo(() => {
     const arr = [...ships];
     arr.sort((a, b) => {
-      const v = compare(a, b, sortKey, scores);
+      const v = compare(a, b, sortKey, scores, roleView);
       return sortDir === "asc" ? v : -v;
     });
     return arr;
-  }, [ships, sortKey, sortDir, scores]);
+  }, [ships, sortKey, sortDir, scores, roleView]);
 
   const clickSort = (k: SortKey) => {
     if (sortKey === k) setSortDir(sortDir === "asc" ? "desc" : "asc");
@@ -51,6 +85,21 @@ export function ShipTable({
 
   return (
     <div className="table-wrap">
+      <div className="role-tabs" role="tablist" aria-label="Role view">
+        {ROLE_VIEWS.map((v) => (
+          <button
+            key={v}
+            type="button"
+            role="tab"
+            className={`role-tab ${roleView === v ? "active" : ""}`}
+            aria-pressed={roleView === v}
+            data-role={v}
+            onClick={() => onRoleViewChange(v)}
+          >
+            {ROLE_LABEL[v]}
+          </button>
+        ))}
+      </div>
       <table className="ship-table">
         <thead>
           <tr>
@@ -58,7 +107,13 @@ export function ShipTable({
             <th className="owned-col" aria-label="Owned" title="Owned">
               <span aria-hidden="true">★</span>
             </th>
-            <Th label="Score" k="score" cur={sortKey} dir={sortDir} on={clickSort} />
+            <Th
+              label={SCORE_HEADER[roleView]}
+              k="score"
+              cur={sortKey}
+              dir={sortDir}
+              on={clickSort}
+            />
             <Th
               label="Name"
               k="name"
@@ -80,12 +135,18 @@ export function ShipTable({
             const score = scores.get(s.id);
             const isSel = selected.has(s.id);
             const isOwned = owned.has(s.id);
+            const suggested: Role = score?.suggestedRole ?? suggestRole(s.typeSimplified);
+            const aligned = roleView !== "overall" && roleView === suggested;
+            const cellValue = scoreFor(score, roleView);
+            const classes = [isSel ? "row-selected" : "", aligned ? "role-aligned" : ""]
+              .filter(Boolean)
+              .join(" ");
             return (
               <tr
                 key={s.id}
                 data-faction={s.faction}
                 data-owned={isOwned}
-                className={isSel ? "row-selected" : ""}
+                className={classes}
                 onClick={() => onToggleSelect(s.id)}
               >
                 <td className="sel-col">
@@ -110,7 +171,7 @@ export function ShipTable({
                     {isOwned ? "★" : "☆"}
                   </button>
                 </td>
-                <td className="score">{score?.total.toFixed(1) ?? "-"}</td>
+                <td className="score">{score ? cellValue.toFixed(1) : "-"}</td>
                 <td className="name-col">
                   <span className="ship-name">{s.name}</span>
                   {s.wikiUrl && (
@@ -127,7 +188,19 @@ export function ShipTable({
                   )}
                 </td>
                 <td>{s.faction}</td>
-                <td>{s.typeSimplified}</td>
+                <td>
+                  <span className="type-with-pip">
+                    <span
+                      className="role-pip"
+                      data-role={suggested}
+                      aria-label={`Suggested role: ${ROLE_LABEL[suggested]}`}
+                      title={`Suggested role: ${ROLE_LABEL[suggested]}`}
+                    >
+                      {suggested.slice(0, 3).toUpperCase()}
+                    </span>
+                    {s.typeSimplified}
+                  </span>
+                </td>
                 <td>
                   {s.weapons.fore}/{s.weapons.aft}
                   {s.weapons.dhc ? " D" : ""}
@@ -173,10 +246,16 @@ function Th({ label, k, cur, dir, on, className }: ThProps) {
   );
 }
 
-function compare(a: Ship, b: Ship, key: SortKey, scores: Map<number, ScoreBreakdown>): number {
+function compare(
+  a: Ship,
+  b: Ship,
+  key: SortKey,
+  scores: Map<number, ScoreBreakdown>,
+  roleView: RoleView,
+): number {
   switch (key) {
     case "score":
-      return (scores.get(a.id)?.total ?? 0) - (scores.get(b.id)?.total ?? 0);
+      return scoreFor(scores.get(a.id), roleView) - scoreFor(scores.get(b.id), roleView);
     case "name":
       return a.name.localeCompare(b.name);
     case "faction":

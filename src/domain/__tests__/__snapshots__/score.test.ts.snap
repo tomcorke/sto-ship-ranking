@@ -2,6 +2,7 @@
 
 exports[`scoreShip > produces a stable category breakdown for a reference hand-built ship 1`] = `
 {
+  "bestRole": "dps",
   "categories": [
     {
       "detail": "5F/3A +DHC +Exp",
@@ -81,6 +82,253 @@ exports[`scoreShip > produces a stable category breakdown for a reference hand-b
       "weight": 1,
     },
   ],
+  "roles": {
+    "dps": {
+      "categories": [
+        {
+          "key": "weapons",
+          "label": "Weapons",
+          "points": 14.950000000000001,
+        },
+        {
+          "key": "consoles",
+          "label": "Consoles",
+          "points": 19.04,
+        },
+        {
+          "key": "boffAbilities",
+          "label": "BOff abilities",
+          "points": 5.885000000000001,
+        },
+        {
+          "key": "trait",
+          "label": "Starship trait",
+          "points": 5.9799999999999995,
+        },
+        {
+          "key": "hangars",
+          "label": "Hangars",
+          "points": 1.7600000000000002,
+        },
+        {
+          "key": "misc",
+          "label": "Misc features",
+          "points": 4.2,
+        },
+        {
+          "key": "cruiserCommands",
+          "label": "Cruiser commands",
+          "points": 0.6,
+        },
+        {
+          "key": "scienceFeatures",
+          "label": "Science features",
+          "points": 0,
+        },
+        {
+          "key": "defense",
+          "label": "Defense",
+          "points": 0,
+        },
+        {
+          "key": "mobility",
+          "label": "Mobility",
+          "points": 0,
+        },
+        {
+          "key": "power",
+          "label": "Power bonus",
+          "points": 0,
+        },
+      ],
+      "role": "dps",
+      "total": 52.4,
+    },
+    "sci": {
+      "categories": [
+        {
+          "key": "weapons",
+          "label": "Weapons",
+          "points": 6.8999999999999995,
+        },
+        {
+          "key": "consoles",
+          "label": "Consoles",
+          "points": 14.96,
+        },
+        {
+          "key": "boffAbilities",
+          "label": "BOff abilities",
+          "points": 6.955000000000001,
+        },
+        {
+          "key": "trait",
+          "label": "Starship trait",
+          "points": 5.06,
+        },
+        {
+          "key": "hangars",
+          "label": "Hangars",
+          "points": 1.7600000000000002,
+        },
+        {
+          "key": "misc",
+          "label": "Misc features",
+          "points": 2.4499999999999997,
+        },
+        {
+          "key": "cruiserCommands",
+          "label": "Cruiser commands",
+          "points": 0.4,
+        },
+        {
+          "key": "scienceFeatures",
+          "label": "Science features",
+          "points": 0,
+        },
+        {
+          "key": "defense",
+          "label": "Defense",
+          "points": 0,
+        },
+        {
+          "key": "mobility",
+          "label": "Mobility",
+          "points": 0,
+        },
+        {
+          "key": "power",
+          "label": "Power bonus",
+          "points": 0,
+        },
+      ],
+      "role": "sci",
+      "total": 38.5,
+    },
+    "support": {
+      "categories": [
+        {
+          "key": "weapons",
+          "label": "Weapons",
+          "points": 8.049999999999999,
+        },
+        {
+          "key": "consoles",
+          "label": "Consoles",
+          "points": 13.6,
+        },
+        {
+          "key": "boffAbilities",
+          "label": "BOff abilities",
+          "points": 7.49,
+        },
+        {
+          "key": "trait",
+          "label": "Starship trait",
+          "points": 5.52,
+        },
+        {
+          "key": "hangars",
+          "label": "Hangars",
+          "points": 2.8600000000000003,
+        },
+        {
+          "key": "misc",
+          "label": "Misc features",
+          "points": 3.15,
+        },
+        {
+          "key": "cruiserCommands",
+          "label": "Cruiser commands",
+          "points": 1.6,
+        },
+        {
+          "key": "scienceFeatures",
+          "label": "Science features",
+          "points": 0,
+        },
+        {
+          "key": "defense",
+          "label": "Defense",
+          "points": 0,
+        },
+        {
+          "key": "mobility",
+          "label": "Mobility",
+          "points": 0,
+        },
+        {
+          "key": "power",
+          "label": "Power bonus",
+          "points": 0,
+        },
+      ],
+      "role": "support",
+      "total": 42.3,
+    },
+    "tank": {
+      "categories": [
+        {
+          "key": "weapons",
+          "label": "Weapons",
+          "points": 8.049999999999999,
+        },
+        {
+          "key": "consoles",
+          "label": "Consoles",
+          "points": 12.24,
+        },
+        {
+          "key": "boffAbilities",
+          "label": "BOff abilities",
+          "points": 5.885000000000001,
+        },
+        {
+          "key": "trait",
+          "label": "Starship trait",
+          "points": 4.14,
+        },
+        {
+          "key": "hangars",
+          "label": "Hangars",
+          "points": 2.2,
+        },
+        {
+          "key": "misc",
+          "label": "Misc features",
+          "points": 2.8000000000000003,
+        },
+        {
+          "key": "cruiserCommands",
+          "label": "Cruiser commands",
+          "points": 2,
+        },
+        {
+          "key": "scienceFeatures",
+          "label": "Science features",
+          "points": 0,
+        },
+        {
+          "key": "defense",
+          "label": "Defense",
+          "points": 0,
+        },
+        {
+          "key": "mobility",
+          "label": "Mobility",
+          "points": 0,
+        },
+        {
+          "key": "power",
+          "label": "Power bonus",
+          "points": 0,
+        },
+      ],
+      "role": "tank",
+      "total": 37.3,
+    },
+  },
+  "suggestedRole": "tank",
   "total": 41.8,
 }
 `;

@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { computeFleetStats, scoreAll, scoreShip } from "../score.ts";
-import { DEFAULT_CONFIG, type ScoringConfig } from "../scoringConfig.ts";
+import {
+  DEFAULT_CONFIG,
+  DEFAULT_ROLE_WEIGHTS,
+  ROLES,
+  type Role,
+  type ScoringConfig,
+} from "../scoringConfig.ts";
+import { ROLE_BY_TYPE } from "../roleDetect.ts";
 import type { Ship } from "../ship.ts";
 
 function makeShip(overrides: Partial<Ship> = {}): Ship {
@@ -273,5 +280,128 @@ describe("scoreAll", () => {
     expect(result.get(2)).toBeDefined();
     expect(result.get(3)).toBeDefined();
     expect(result.get(99)).toBeUndefined();
+  });
+});
+
+describe("scoreShip role overlays", () => {
+  it("returns a roles map with four entries when config has roles", () => {
+    const ship = makeShip();
+    const result = scoreShip(ship, ZERO_STATS);
+    expect(result.roles).toBeDefined();
+    const keys = Object.keys(result.roles!);
+    expect(keys.sort()).toEqual(["dps", "sci", "support", "tank"]);
+    for (const r of ROLES) {
+      const rs = result.roles![r];
+      expect(rs.role).toBe(r);
+      expect(typeof rs.total).toBe("number");
+      expect(rs.categories.length).toBe(result.categories.length);
+    }
+  });
+
+  it("omits role fields when config.roles is undefined", () => {
+    const bare: ScoringConfig = { ...DEFAULT_CONFIG };
+    delete bare.roles;
+    const ship = makeShip();
+    const result = scoreShip(ship, ZERO_STATS, bare);
+    expect(result.roles).toBeUndefined();
+    expect(result.suggestedRole).toBeUndefined();
+    expect(result.bestRole).toBeUndefined();
+    // Total + categories unchanged in shape.
+    expect(typeof result.total).toBe("number");
+    expect(Array.isArray(result.categories)).toBe(true);
+  });
+
+  it("preserves overall total and categories when roles is enabled", () => {
+    // Same ship scored with and without roles should yield identical
+    // overall totals - roles are an additive projection, not a rescaling.
+    const ship = makeShip({
+      hangars: 1,
+      weapons: { total: 8, fore: 5, aft: 3, dhc: true, experimental: true },
+    });
+    const bare: ScoringConfig = { ...DEFAULT_CONFIG };
+    delete bare.roles;
+    const withRoles = scoreShip(ship, ZERO_STATS, DEFAULT_CONFIG);
+    const withoutRoles = scoreShip(ship, ZERO_STATS, bare);
+    expect(withRoles.total).toBe(withoutRoles.total);
+    expect(withRoles.categories.length).toBe(withoutRoles.categories.length);
+    for (let i = 0; i < withRoles.categories.length; i++) {
+      expect(withRoles.categories[i].key).toBe(withoutRoles.categories[i].key);
+      expect(withRoles.categories[i].points).toBeCloseTo(withoutRoles.categories[i].points, 6);
+    }
+  });
+
+  it("DPS overlay lifts a weapons-heavy ship's DPS role above its overall", () => {
+    // All the gear a DPS-overlay amplifies (weapons, consoles, misc, trait)
+    // is maxed; all the stuff it down-weights (defense, sciFeature) is
+    // absent. DPS role score should exceed the overall score.
+    const ship = makeShip({
+      weapons: { total: 8, fore: 5, aft: 3, dhc: true, experimental: true },
+      consoles: { tac: 5, eng: 2, sci: 1, uni: 2 },
+      miscFeatures: { singularity: false, cloak: true, flankingPct: 50, wingmen: false },
+      trait: {
+        name: "Damage Boost",
+        summary: "+critical damage on beam overload cooldown reduction",
+        url: "",
+      },
+    });
+    const result = scoreShip(ship, ZERO_STATS);
+    expect(result.roles!.dps.total).toBeGreaterThan(result.total);
+  });
+
+  it("Tank overlay lifts a hull-heavy cruiser's Tank role above its overall", () => {
+    // Tank overlay applies 2.0x to cruiser commands and 1.8x to defense.
+    // We set up a fleet where the tank ship has a positive hull z-score
+    // (big hull vs a small-hull baseline) and a full aura loadout so the
+    // tank-amplified categories dominate the weapons down-weighting.
+    const fleet = [
+      makeShip({ id: 1, hull: 30000, shieldMod: 0.8, defenseHullMod: 0.7 }),
+      makeShip({
+        id: 2,
+        typeSimplified: "Cruiser",
+        hull: 120000,
+        shieldMod: 1.4,
+        defenseHullMod: 1.3,
+        cruiserCommands: { weapon: true, shield: true, engine: true, threat: true },
+        weapons: { total: 6, fore: 3, aft: 3, dhc: false, experimental: false },
+        consoles: { tac: 2, eng: 5, sci: 3, uni: 1 },
+      }),
+    ];
+    const stats = computeFleetStats(fleet);
+    const result = scoreShip(fleet[1], stats);
+    expect(result.roles!.tank.total).toBeGreaterThan(result.total);
+  });
+
+  it("bestRole is the argmax across roles", () => {
+    const ship = makeShip({
+      weapons: { total: 8, fore: 5, aft: 3, dhc: true, experimental: true },
+      consoles: { tac: 5, eng: 2, sci: 1, uni: 2 },
+      miscFeatures: { singularity: false, cloak: true, flankingPct: 50, wingmen: false },
+    });
+    const result = scoreShip(ship, ZERO_STATS);
+    const totals = ROLES.map((r) => result.roles![r].total);
+    const max = Math.max(...totals);
+    expect(result.roles![result.bestRole!].total).toBe(max);
+  });
+
+  it("suggestedRole comes from typeSimplified via ROLE_BY_TYPE", () => {
+    const escort = scoreShip(makeShip({ typeSimplified: "Escort" }), ZERO_STATS);
+    const cruiser = scoreShip(makeShip({ typeSimplified: "Cruiser" }), ZERO_STATS);
+    const sci = scoreShip(makeShip({ typeSimplified: "Science Vessel" }), ZERO_STATS);
+    expect(escort.suggestedRole).toBe("dps");
+    expect(cruiser.suggestedRole).toBe("tank");
+    expect(sci.suggestedRole).toBe("sci");
+  });
+
+  it("ROLE_BY_TYPE maps only to valid Role values", () => {
+    const validRoles = new Set<Role>(ROLES);
+    for (const [, role] of Object.entries(ROLE_BY_TYPE)) {
+      expect(validRoles.has(role)).toBe(true);
+    }
+  });
+
+  it("DEFAULT_ROLE_WEIGHTS covers every Role", () => {
+    for (const r of ROLES) {
+      expect(DEFAULT_ROLE_WEIGHTS[r]).toBeDefined();
+    }
   });
 });
