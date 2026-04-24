@@ -59,7 +59,14 @@ export function ShipTable({
               <span aria-hidden="true">★</span>
             </th>
             <Th label="Score" k="score" cur={sortKey} dir={sortDir} on={clickSort} />
-            <Th label="Name" k="name" cur={sortKey} dir={sortDir} on={clickSort} />
+            <Th
+              label="Name"
+              k="name"
+              cur={sortKey}
+              dir={sortDir}
+              on={clickSort}
+              className="name-col"
+            />
             <Th label="Faction" k="faction" cur={sortKey} dir={sortDir} on={clickSort} />
             <Th label="Type" k="typeSimplified" cur={sortKey} dir={sortDir} on={clickSort} />
             <Th label="Wpns" k="weapons" cur={sortKey} dir={sortDir} on={clickSort} />
@@ -104,7 +111,7 @@ export function ShipTable({
                   </button>
                 </td>
                 <td className="score">{score?.total.toFixed(1) ?? "-"}</td>
-                <td>
+                <td className="name-col">
                   <span className="ship-name">{s.name}</span>
                   {s.wikiUrl && (
                     <a
@@ -144,17 +151,19 @@ interface ThProps {
   cur: SortKey;
   dir: "asc" | "desc";
   on: (k: SortKey) => void;
+  className?: string;
 }
 
-function Th({ label, k, cur, dir, on }: ThProps) {
+function Th({ label, k, cur, dir, on, className }: ThProps) {
   const active = cur === k;
   const ariaSort: "ascending" | "descending" | "none" = active
     ? dir === "asc"
       ? "ascending"
       : "descending"
     : "none";
+  const classes = ["sortable", active ? "active" : "", className ?? ""].filter(Boolean).join(" ");
   return (
-    <th className={`sortable ${active ? "active" : ""}`} aria-sort={ariaSort}>
+    <th className={classes} aria-sort={ariaSort}>
       <button type="button" className="sort-btn" onClick={() => on(k)}>
         {label}
         {active ? (dir === "asc" ? " ▲" : " ▼") : ""}
