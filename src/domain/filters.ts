@@ -1,3 +1,4 @@
+import { matchesOwnedMode, type OwnedMode } from "./ownership.ts";
 import type { Ship } from "./ship.ts";
 
 export interface Filters {
@@ -8,6 +9,7 @@ export interface Filters {
   careers: Set<string>;
   hangarsOnly: boolean;
   cloakOnly: boolean;
+  ownedMode: OwnedMode;
 }
 
 export const emptyFilters = (): Filters => ({
@@ -18,6 +20,7 @@ export const emptyFilters = (): Filters => ({
   careers: new Set(),
   hangarsOnly: false,
   cloakOnly: false,
+  ownedMode: "all",
 });
 
 export function uniqueValues<T>(ships: Ship[], pick: (s: Ship) => T): T[] {
@@ -29,7 +32,7 @@ export function uniqueValues<T>(ships: Ship[], pick: (s: Ship) => T): T[] {
   return [...seen].sort((a, b) => String(a).localeCompare(String(b)));
 }
 
-export function applyFilters(ships: Ship[], f: Filters): Ship[] {
+export function applyFilters(ships: Ship[], f: Filters, owned: Set<number>): Ship[] {
   const q = f.search.trim().toLowerCase();
   return ships.filter((s) => {
     if (q && !s.name.toLowerCase().includes(q)) return false;
@@ -39,6 +42,7 @@ export function applyFilters(ships: Ship[], f: Filters): Ship[] {
     if (f.careers.size > 0 && !f.careers.has(s.career || "")) return false;
     if (f.hangarsOnly && s.hangars <= 0) return false;
     if (f.cloakOnly && !s.miscFeatures.cloak) return false;
+    if (!matchesOwnedMode(s.id, owned, f.ownedMode)) return false;
     return true;
   });
 }

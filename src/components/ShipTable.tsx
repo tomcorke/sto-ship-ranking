@@ -17,9 +17,18 @@ interface Props {
   scores: Map<number, ScoreBreakdown>;
   selected: Set<number>;
   onToggleSelect: (id: number) => void;
+  owned: Set<number>;
+  onToggleOwned: (id: number) => void;
 }
 
-export function ShipTable({ ships, scores, selected, onToggleSelect }: Props) {
+export function ShipTable({
+  ships,
+  scores,
+  selected,
+  onToggleSelect,
+  owned,
+  onToggleOwned,
+}: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("score");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -46,6 +55,9 @@ export function ShipTable({ ships, scores, selected, onToggleSelect }: Props) {
         <thead>
           <tr>
             <th className="sel-col" aria-label="select" />
+            <th className="owned-col" aria-label="Owned" title="Owned">
+              <span aria-hidden="true">★</span>
+            </th>
             <Th label="Score" k="score" cur={sortKey} dir={sortDir} on={clickSort} />
             <Th label="Name" k="name" cur={sortKey} dir={sortDir} on={clickSort} />
             <Th label="Faction" k="faction" cur={sortKey} dir={sortDir} on={clickSort} />
@@ -60,10 +72,12 @@ export function ShipTable({ ships, scores, selected, onToggleSelect }: Props) {
           {sorted.map((s) => {
             const score = scores.get(s.id);
             const isSel = selected.has(s.id);
+            const isOwned = owned.has(s.id);
             return (
               <tr
                 key={s.id}
                 data-faction={s.faction}
+                data-owned={isOwned}
                 className={isSel ? "row-selected" : ""}
                 onClick={() => onToggleSelect(s.id)}
               >
@@ -74,6 +88,20 @@ export function ShipTable({ ships, scores, selected, onToggleSelect }: Props) {
                     onChange={() => onToggleSelect(s.id)}
                     onClick={(e) => e.stopPropagation()}
                   />
+                </td>
+                <td className="owned-col">
+                  <button
+                    type="button"
+                    className="owned-toggle"
+                    aria-pressed={isOwned}
+                    aria-label={isOwned ? "Unmark as owned" : "Mark as owned"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleOwned(s.id);
+                    }}
+                  >
+                    {isOwned ? "★" : "☆"}
+                  </button>
                 </td>
                 <td className="score">{score?.total.toFixed(1) ?? "-"}</td>
                 <td>

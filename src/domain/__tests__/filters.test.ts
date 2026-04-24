@@ -73,14 +73,14 @@ describe("applyFilters", () => {
   ];
 
   it("returns all ships for empty filters", () => {
-    const result = applyFilters(ships, emptyFilters());
+    const result = applyFilters(ships, emptyFilters(), new Set());
     expect(result).toHaveLength(ships.length);
   });
 
   it("matches names case-insensitively and ignores leading/trailing whitespace in the query", () => {
     const f = emptyFilters();
     f.search = "  DEFIANT  ";
-    const result = applyFilters(ships, f);
+    const result = applyFilters(ships, f, new Set());
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe("Defiant");
   });
@@ -88,14 +88,14 @@ describe("applyFilters", () => {
   it("filters by the faction Set", () => {
     const f = emptyFilters();
     f.factions = new Set(["Federation"]);
-    const result = applyFilters(ships, f);
+    const result = applyFilters(ships, f, new Set());
     expect(result.map((s) => s.id).sort((a, b) => a - b)).toEqual([1, 4]);
   });
 
   it("hangarsOnly excludes ships with no hangar bays", () => {
     const f = emptyFilters();
     f.hangarsOnly = true;
-    const result = applyFilters(ships, f);
+    const result = applyFilters(ships, f, new Set());
     expect(result.map((s) => s.id).sort((a, b) => a - b)).toEqual([3, 4]);
   });
 
@@ -103,7 +103,21 @@ describe("applyFilters", () => {
     const f = emptyFilters();
     f.factions = new Set(["Federation"]);
     f.hangarsOnly = true;
-    const result = applyFilters(ships, f);
+    const result = applyFilters(ships, f, new Set());
     expect(result.map((s) => s.id)).toEqual([4]);
+  });
+
+  it("ownedMode=owned returns only ships whose id is in the owned set", () => {
+    const f = emptyFilters();
+    f.ownedMode = "owned";
+    const result = applyFilters(ships, f, new Set([2, 4]));
+    expect(result.map((s) => s.id).sort((a, b) => a - b)).toEqual([2, 4]);
+  });
+
+  it("ownedMode=not-owned returns only ships whose id is absent from the owned set", () => {
+    const f = emptyFilters();
+    f.ownedMode = "not-owned";
+    const result = applyFilters(ships, f, new Set([2, 4]));
+    expect(result.map((s) => s.id).sort((a, b) => a - b)).toEqual([1, 3]);
   });
 });

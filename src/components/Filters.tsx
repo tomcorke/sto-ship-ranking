@@ -1,4 +1,5 @@
 import { emptyFilters, type Filters } from "../domain/filters.ts";
+import type { OwnedMode } from "../domain/ownership.ts";
 
 interface Props {
   filters: Filters;
@@ -33,8 +34,15 @@ function countActive(f: Filters): number {
   if (f.search.trim()) n += 1;
   if (f.hangarsOnly) n += 1;
   if (f.cloakOnly) n += 1;
+  if (f.ownedMode !== "all") n += 1;
   return n;
 }
+
+const OWNED_MODE_OPTIONS: { value: OwnedMode; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "owned", label: "Owned" },
+  { value: "not-owned", label: "Not owned" },
+];
 
 export function FiltersPanel({
   filters,
@@ -104,6 +112,13 @@ export function FiltersPanel({
         values={shipTypes}
         selected={filters.shipTypes}
         onToggle={(v) => onChange({ ...filters, shipTypes: toggleIn(filters.shipTypes, v) })}
+      />
+
+      <ExclusiveChipGroup
+        label="Owned"
+        options={OWNED_MODE_OPTIONS}
+        value={filters.ownedMode}
+        onChange={(v) => onChange({ ...filters, ownedMode: v })}
       />
 
       <fieldset className="field checkboxes">
@@ -186,6 +201,19 @@ export function ActiveFilters({ filters, onChange }: ActiveFiltersProps) {
       onRemove: () => onChange({ ...filters, cloakOnly: false }),
     });
   }
+  if (filters.ownedMode === "owned") {
+    chips.push({
+      key: `ownedMode`,
+      label: "Owned only",
+      onRemove: () => onChange({ ...filters, ownedMode: "all" }),
+    });
+  } else if (filters.ownedMode === "not-owned") {
+    chips.push({
+      key: `ownedMode`,
+      label: "Not owned",
+      onRemove: () => onChange({ ...filters, ownedMode: "all" }),
+    });
+  }
 
   if (chips.length === 0) return null;
 
@@ -229,6 +257,44 @@ function ChipGroup({ label, values, selected, onToggle }: ChipGroupProps) {
               onClick={() => onToggle(v)}
             >
               {v || "-"}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+interface ExclusiveChipGroupProps<T extends string> {
+  label: string;
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}
+
+function ExclusiveChipGroup<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: ExclusiveChipGroupProps<T>) {
+  return (
+    <div className="field">
+      <span>{label}</span>
+      <div className="chips" role="radiogroup" aria-label={label}>
+        {options.map((opt) => {
+          const on = value === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              role="radio"
+              className={`chip ${on ? "chip-on" : ""}`}
+              aria-checked={on}
+              aria-pressed={on}
+              onClick={() => onChange(opt.value)}
+            >
+              {opt.label}
             </button>
           );
         })}
