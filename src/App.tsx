@@ -4,6 +4,7 @@ import { ActiveFilters, FiltersPanel } from "./components/Filters.tsx";
 import { ShipTable } from "./components/ShipTable.tsx";
 import { Comparison } from "./components/Comparison.tsx";
 import { applyFilters, uniqueValues } from "./domain/filters.ts";
+import { loadOwned, saveOwned } from "./domain/ownership.ts";
 import { deserialiseState, serialiseState } from "./domain/urlState.ts";
 
 const DISCLAIMER_KEY = "sto-ship-ranking.disclaimer.dismissed";
@@ -22,6 +23,7 @@ export default function App() {
     () => deserialiseState(window.location.hash).selected,
   );
   const [disclaimerDismissed, setDisclaimerDismissed] = useState(readDisclaimerDismissed);
+  const [owned, setOwned] = useState<Set<number>>(loadOwned);
 
   // Write back to the hash on state changes (replaceState, no history entries).
   useEffect(() => {
@@ -30,7 +32,7 @@ export default function App() {
     window.history.replaceState(null, "", url);
   }, [filters, selected]);
 
-  const filtered = useMemo(() => applyFilters(ships, filters), [filters]);
+  const filtered = useMemo(() => applyFilters(ships, filters, owned), [filters, owned]);
 
   const factions = useMemo(() => uniqueValues(ships, (s) => s.faction), []);
   const sources = useMemo(() => uniqueValues(ships, (s) => s.source), []);
@@ -44,6 +46,16 @@ export default function App() {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleOwned = (id: number) => {
+    setOwned((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      saveOwned(next);
       return next;
     });
   };
@@ -111,12 +123,16 @@ export default function App() {
             scores={scores}
             onRemove={toggleSelect}
             onClear={() => setSelected(new Set())}
+            owned={owned}
+            onToggleOwned={toggleOwned}
           />
           <ShipTable
             ships={filtered}
             scores={scores}
             selected={selected}
             onToggleSelect={toggleSelect}
+            owned={owned}
+            onToggleOwned={toggleOwned}
           />
         </div>
       </div>

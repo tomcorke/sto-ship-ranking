@@ -6,6 +6,8 @@ interface Props {
   scores: Map<number, ScoreBreakdown>;
   onRemove: (id: number) => void;
   onClear: () => void;
+  owned: Set<number>;
+  onToggleOwned: (id: number) => void;
 }
 
 interface Row {
@@ -20,7 +22,7 @@ interface Row {
   muted?: boolean;
 }
 
-export function Comparison({ ships, scores, onRemove, onClear }: Props) {
+export function Comparison({ ships, scores, onRemove, onClear, owned, onToggleOwned }: Props) {
   if (ships.length === 0) {
     return (
       <section className="comparison empty">
@@ -46,21 +48,35 @@ export function Comparison({ ships, scores, onRemove, onClear }: Props) {
           <thead>
             <tr>
               <th className="label-col">Category</th>
-              {ships.map((s) => (
-                <th key={s.id}>
-                  <div className="comp-ship-head">
-                    <span>{s.name}</span>
-                    <button
-                      type="button"
-                      className="link"
-                      onClick={() => onRemove(s.id)}
-                      aria-label={`Remove ${s.name}`}
-                    >
-                      ×
-                    </button>
-                  </div>
-                </th>
-              ))}
+              {ships.map((s) => {
+                const isOwned = owned.has(s.id);
+                return (
+                  <th key={s.id}>
+                    <div className="comp-ship-head">
+                      <span>{s.name}</span>
+                      <button
+                        type="button"
+                        className="owned-toggle"
+                        aria-pressed={isOwned}
+                        aria-label={
+                          isOwned ? `Unmark ${s.name} as owned` : `Mark ${s.name} as owned`
+                        }
+                        onClick={() => onToggleOwned(s.id)}
+                      >
+                        {isOwned ? "★" : "☆"}
+                      </button>
+                      <button
+                        type="button"
+                        className="link"
+                        onClick={() => onRemove(s.id)}
+                        aria-label={`Remove ${s.name}`}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>

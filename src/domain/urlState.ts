@@ -41,6 +41,8 @@ export function serialiseState({ filters, selected }: UrlState): string {
   if (filters.search) parts.push(`search=${encodeURIComponent(filters.search)}`);
   if (filters.hangarsOnly) parts.push(`hangarsOnly=1`);
   if (filters.cloakOnly) parts.push(`cloakOnly=1`);
+  if (filters.ownedMode === "owned") parts.push(`owned=owned`);
+  else if (filters.ownedMode === "not-owned") parts.push(`owned=not-owned`);
   if (selected.size > 0) parts.push(`sel=${encodeIdSet(selected)}`);
   return parts.join("&");
 }
@@ -80,6 +82,10 @@ export function deserialiseState(hash: string): UrlState {
         break;
       case "cloakOnly":
         filters.cloakOnly = value === "1";
+        break;
+      case "owned":
+        if (value === "owned" || value === "not-owned") filters.ownedMode = value;
+        else filters.ownedMode = "all";
         break;
       case "sel":
         for (const id of decodeIdSet(value)) selected.add(id);
