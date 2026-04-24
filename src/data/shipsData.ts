@@ -1,11 +1,8 @@
 import type { Ship } from "../domain/ship.ts";
-import type { ScoreBreakdown } from "../domain/score.ts";
 import { parseShips } from "../domain/parse.ts";
-import { scoreAll } from "../domain/score.ts";
 
 export interface Dataset {
   ships: Ship[];
-  scores: Map<number, ScoreBreakdown>;
 }
 
 let cached: Dataset | null = null;
@@ -22,8 +19,7 @@ export async function loadDataset(): Promise<Dataset> {
     if (!res.ok) throw new Error(`ships.csv fetch failed: ${res.status}`);
     const csv = await res.text();
     const ships = parseShips(csv);
-    const scores = scoreAll(ships);
-    cached = { ships, scores };
+    cached = { ships };
     return cached;
   })();
   try {

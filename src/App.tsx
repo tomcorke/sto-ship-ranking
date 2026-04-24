@@ -1,11 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { loadDataset, type Dataset } from "./data/shipsData.ts";
 import { ActiveFilters, FiltersPanel } from "./components/Filters.tsx";
 import { ShipTable } from "./components/ShipTable.tsx";
 import { Comparison } from "./components/Comparison.tsx";
+import { RubricModal } from "./components/RubricModal.tsx";
 import { applyFilters, uniqueValues } from "./domain/filters.ts";
 import { loadOwned, saveOwned } from "./domain/ownership.ts";
 import { computeRanking } from "./domain/ranking.ts";
+import { loadConfig, saveConfig } from "./domain/configPersistence.ts";
+import { scoreAll } from "./domain/score.ts";
+import type { ScoreBreakdown } from "./domain/score.ts";
+import type { ScoringConfig } from "./domain/scoringConfig.ts";
 import { deserialiseState, serialiseState, type RoleView } from "./domain/urlState.ts";
 
 const DISCLAIMER_KEY = "sto-ship-ranking.disclaimer.dismissed";
@@ -35,6 +40,15 @@ export default function App() {
   const [owned, setOwned] = useState<Set<number>>(loadOwned);
   const [loadState, setLoadState] = useState<LoadState>({ status: "loading" });
   const [retryToken, setRetryToken] = useState(0);
+  const [config, setConfig] = useState<ScoringConfig>(() => loadConfig());
+  const [rubricOpen, setRubricOpen] = useState(false);
+  const rubricTriggerRef = useRef<HTMLButtonElement>(null);
+
+  // Persist config edits immediately; no debounce needed - writes are
+  // small and saving-per-keystroke is fine for localStorage.
+  useEffect(() => {
+    saveConfig(config);
+  }, [config]);
 
   // Kick off dataset load on mount / retry.
   useEffect(() => {
@@ -64,8 +78,13 @@ export default function App() {
   }, [filters, selected, roleView]);
 
   const ships = loadState.status === "ready" ? loadState.dataset.ships : [];
-  const scores =
-    loadState.status === "ready" ? loadState.dataset.scores : (new Map() as Dataset["scores"]);
+  // Scores are derived from the current config so weight edits re-rank
+  // the table live. Recomputing against the full fleet keeps z-scored
+  // categories (defense / mobility / power) stable across edits.
+  const scores = useMemo<Map<number, ScoreBreakdown>>(
+    () => (ships.length > 0 ? scoreAll(ships, config) : new Map()),
+    [ships, config],
+  );
 
   const filtered = useMemo(() => applyFilters(ships, filters, owned), [ships, filters, owned]);
 
@@ -142,8 +161,8 @@ export default function App() {
       {!disclaimerDismissed && (
         <div className="disclaimer" role="note">
           <span>
-            Scores are a rough heuristic - use as a starting point, not a verdict. Click the Score
-            column header for the rubric breakdown.
+            Scores are a rough heuristic - use as a starting point, not a verdict. Click the (?)
+            next to the Score column for the rubric breakdown.
           </span>
           <button
             type="button"
@@ -207,10 +226,24 @@ export default function App() {
               onToggleOwned={toggleOwned}
               roleView={roleView}
               onRoleViewChange={setRoleView}
+              onOpenRubric={() => setRubricOpen(true)}
+              rubricTriggerRef={rubricTriggerRef}
             />
           </div>
         </div>
       )}
+
+      <RubricModal
+        open={rubricOpen}
+        config={config}
+        onChange={setConfig}
+        onClose={() => {
+          setRubricOpen(false);
+          // Return focus to the trigger so keyboard users land back
+          // where they were before opening the modal.
+          rubricTriggerRef.current?.focus();
+        }}
+      />
 
       <footer className="app-footer">
         <p>
