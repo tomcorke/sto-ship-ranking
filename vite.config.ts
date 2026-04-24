@@ -8,4 +8,7 @@ export default defineConfig({
   plugins: [react()],
   fmt: {},
   lint: { options: { typeAware: true, typeCheck: true } },
+  test: {
+    exclude: ["**/node_modules/**", "**/.claude/**"],
+  },
 });

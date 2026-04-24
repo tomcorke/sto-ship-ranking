@@ -89,7 +89,10 @@ export function Comparison({ ships, scores, onRemove, onClear, owned, onToggleOw
           <span className="caret" aria-hidden="true">
             {collapsed ? "▸" : "▾"}
           </span>
-          <span>Comparison ({ships.length})</span>
+          <span className="comparison-toggle-label">Comparison ({ships.length})</span>
+          <span className="comparison-toggle-hint">
+            {collapsed ? "show details" : "hide details"}
+          </span>
         </button>
         <div className="comparison-chips" role="list">
           {ships.map((s) => (
