@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { summariseWinners } from "../comparisonSummary.ts";
-import type { ScoreBreakdown } from "../score.ts";
+import type { RoleScore, ScoreBreakdown } from "../score.ts";
+import type { Role } from "../scoringConfig.ts";
 import type { Ship } from "../ship.ts";
 
 function makeShip(id: number, name: string): Ship {
@@ -67,11 +68,23 @@ function makeShip(id: number, name: string): Ship {
 function makeBreakdown(
   total: number,
   cats: { key: string; label: string; points: number }[],
+  roles?: Record<
+    Role,
+    { total: number; categories: { key: string; label: string; points: number }[] }
+  >,
 ): ScoreBreakdown {
-  return {
+  const bd: ScoreBreakdown = {
     total,
     categories: cats.map((c) => ({ ...c, weight: 1, detail: "" })),
   };
+  if (roles) {
+    const out = {} as Record<Role, RoleScore>;
+    (Object.keys(roles) as Role[]).forEach((r) => {
+      out[r] = { role: r, total: roles[r].total, categories: roles[r].categories };
+    });
+    bd.roles = out;
+  }
+  return bd;
 }
 
 describe("summariseWinners", () => {
@@ -162,6 +175,117 @@ describe("summariseWinners", () => {
     expect(summary).not.toBeNull();
     expect(summary!.tied).toBe(true);
     expect(summary!.winner.name).toBe("Alpha");
+  });
+
+  it("picks a different winner when roleView switches from overall to dps", () => {
+    // Alpha wins on overall total, but Bravo has weapons-heavy weighting
+    // that wins under dps overlay.
+    const a = makeShip(1, "Alpha");
+    const b = makeShip(2, "Bravo");
+    const scores = new Map([
+      [
+        1,
+        makeBreakdown(
+          100,
+          [
+            { key: "weapons", label: "Weapons", points: 20 },
+            { key: "defense", label: "Defense", points: 80 },
+          ],
+          {
+            dps: {
+              total: 30,
+              categories: [
+                { key: "weapons", label: "Weapons", points: 30 },
+                { key: "defense", label: "Defense", points: 0 },
+              ],
+            },
+            tank: {
+              total: 100,
+              categories: [
+                { key: "weapons", label: "Weapons", points: 20 },
+                { key: "defense", label: "Defense", points: 80 },
+              ],
+            },
+            sci: {
+              total: 0,
+              categories: [
+                { key: "weapons", label: "Weapons", points: 0 },
+                { key: "defense", label: "Defense", points: 0 },
+              ],
+            },
+            support: {
+              total: 0,
+              categories: [
+                { key: "weapons", label: "Weapons", points: 0 },
+                { key: "defense", label: "Defense", points: 0 },
+              ],
+            },
+          },
+        ),
+      ],
+      [
+        2,
+        makeBreakdown(
+          80,
+          [
+            { key: "weapons", label: "Weapons", points: 60 },
+            { key: "defense", label: "Defense", points: 20 },
+          ],
+          {
+            dps: {
+              total: 90,
+              categories: [
+                { key: "weapons", label: "Weapons", points: 90 },
+                { key: "defense", label: "Defense", points: 0 },
+              ],
+            },
+            tank: {
+              total: 20,
+              categories: [
+                { key: "weapons", label: "Weapons", points: 0 },
+                { key: "defense", label: "Defense", points: 20 },
+              ],
+            },
+            sci: {
+              total: 0,
+              categories: [
+                { key: "weapons", label: "Weapons", points: 0 },
+                { key: "defense", label: "Defense", points: 0 },
+              ],
+            },
+            support: {
+              total: 0,
+              categories: [
+                { key: "weapons", label: "Weapons", points: 0 },
+                { key: "defense", label: "Defense", points: 0 },
+              ],
+            },
+          },
+        ),
+      ],
+    ]);
+
+    const overall = summariseWinners([a, b], scores, "overall");
+    expect(overall!.winner.id).toBe(1);
+    expect(overall!.leads.map((l) => l.key)).toEqual(["defense"]);
+
+    const dps = summariseWinners([a, b], scores, "dps");
+    expect(dps!.winner.id).toBe(2);
+    // Bravo leads on weapons under dps overlay (90 vs 30).
+    expect(dps!.leads.map((l) => l.key)).toEqual(["weapons"]);
+    expect(dps!.leads[0].delta).toBe(60);
+  });
+
+  it("falls back to overall when roles overlay is missing", () => {
+    const a = makeShip(1, "Alpha");
+    const b = makeShip(2, "Bravo");
+    const scores = new Map([
+      [1, makeBreakdown(100, [{ key: "weapons", label: "Weapons", points: 30 }])],
+      [2, makeBreakdown(50, [{ key: "weapons", label: "Weapons", points: 10 }])],
+    ]);
+    const summary = summariseWinners([a, b], scores, "dps");
+    expect(summary!.winner.id).toBe(1);
+    expect(summary!.leads.map((l) => l.key)).toEqual(["weapons"]);
   });
 
   it("sorts leads by absolute delta descending", () => {
