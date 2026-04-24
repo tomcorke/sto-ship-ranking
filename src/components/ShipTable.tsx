@@ -63,6 +63,7 @@ export function ShipTable({ ships, scores, selected, onToggleSelect }: Props) {
             return (
               <tr
                 key={s.id}
+                data-faction={s.faction}
                 className={isSel ? "row-selected" : ""}
                 onClick={() => onToggleSelect(s.id)}
               >
@@ -119,10 +120,17 @@ interface ThProps {
 
 function Th({ label, k, cur, dir, on }: ThProps) {
   const active = cur === k;
+  const ariaSort: "ascending" | "descending" | "none" = active
+    ? dir === "asc"
+      ? "ascending"
+      : "descending"
+    : "none";
   return (
-    <th className={`sortable ${active ? "active" : ""}`} onClick={() => on(k)}>
-      {label}
-      {active ? (dir === "asc" ? " ▲" : " ▼") : ""}
+    <th className={`sortable ${active ? "active" : ""}`} aria-sort={ariaSort}>
+      <button type="button" className="sort-btn" onClick={() => on(k)}>
+        {label}
+        {active ? (dir === "asc" ? " ▲" : " ▼") : ""}
+      </button>
     </th>
   );
 }
