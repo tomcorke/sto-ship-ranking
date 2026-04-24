@@ -843,3 +843,183 @@ button.link:hover {
     min-height: 44px;
   }
 }
+
+/* -------- Role overlays (tabs, pips, stripes, badges) ------------------- */
+
+:root {
+  --role-dps: #d05050;
+  --role-tank: #4e86c2;
+  --role-sci: #7a5fd0;
+  --role-support: #2fa36a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --role-dps: #ef7a7a;
+    --role-tank: #7fb0e0;
+    --role-sci: #a890f0;
+    --role-support: #5fc98c;
+  }
+}
+
+.role-tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.4rem 0.4rem 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+.role-tab {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+  font-weight: 500;
+  min-height: 32px;
+}
+
+.role-tab:hover {
+  background: var(--surface-2);
+}
+
+.role-tab.active {
+  background: var(--bg);
+  border-color: var(--border);
+  font-weight: 600;
+}
+
+.role-tab[data-role="dps"].active {
+  box-shadow: inset 0 -3px 0 var(--role-dps);
+}
+.role-tab[data-role="tank"].active {
+  box-shadow: inset 0 -3px 0 var(--role-tank);
+}
+.role-tab[data-role="sci"].active {
+  box-shadow: inset 0 -3px 0 var(--role-sci);
+}
+.role-tab[data-role="support"].active {
+  box-shadow: inset 0 -3px 0 var(--role-support);
+}
+.role-tab[data-role="overall"].active {
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
+
+.type-with-pip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.role-pip {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.08rem 0.35rem;
+  border-radius: 3px;
+  color: #fff;
+  line-height: 1.3;
+  min-width: 2.2rem;
+  text-align: center;
+}
+
+.role-pip[data-role="dps"] {
+  background: var(--role-dps);
+}
+.role-pip[data-role="tank"] {
+  background: var(--role-tank);
+}
+.role-pip[data-role="sci"] {
+  background: var(--role-sci);
+}
+.role-pip[data-role="support"] {
+  background: var(--role-support);
+}
+
+.ship-table tr.role-aligned td {
+  background: var(--accent-bg);
+}
+
+.role-stripe {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+  margin-top: 0.35rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.role-stripe-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.15rem 0.2rem;
+  border-radius: 3px;
+  color: #fff;
+  line-height: 1.2;
+  opacity: calc(0.45 + 0.55 * var(--role-shade, 0.5));
+  border: 1px solid transparent;
+}
+
+.role-stripe-cell.best {
+  border-color: var(--text);
+  opacity: 1;
+}
+
+.role-stripe-cell[data-role="dps"] {
+  background: var(--role-dps);
+}
+.role-stripe-cell[data-role="tank"] {
+  background: var(--role-tank);
+}
+.role-stripe-cell[data-role="sci"] {
+  background: var(--role-sci);
+}
+.role-stripe-cell[data-role="support"] {
+  background: var(--role-support);
+}
+
+.role-stripe-label {
+  letter-spacing: 0.04em;
+}
+.role-stripe-val {
+  font-weight: 700;
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.role-badge[data-role="dps"] {
+  background: var(--role-dps);
+}
+.role-badge[data-role="tank"] {
+  background: var(--role-tank);
+}
+.role-badge[data-role="sci"] {
+  background: var(--role-sci);
+}
+.role-badge[data-role="support"] {
+  background: var(--role-support);
+}
+
+.role-badge-val {
+  font-weight: 500;
+  opacity: 0.9;
+}

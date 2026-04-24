@@ -5,7 +5,7 @@ import { ShipTable } from "./components/ShipTable.tsx";
 import { Comparison } from "./components/Comparison.tsx";
 import { applyFilters, uniqueValues } from "./domain/filters.ts";
 import { loadOwned, saveOwned } from "./domain/ownership.ts";
-import { deserialiseState, serialiseState } from "./domain/urlState.ts";
+import { deserialiseState, serialiseState, type RoleView } from "./domain/urlState.ts";
 
 const DISCLAIMER_KEY = "sto-ship-ranking.disclaimer.dismissed";
 
@@ -22,15 +22,18 @@ export default function App() {
   const [selected, setSelected] = useState<Set<number>>(
     () => deserialiseState(window.location.hash).selected,
   );
+  const [roleView, setRoleView] = useState<RoleView>(
+    () => deserialiseState(window.location.hash).roleView,
+  );
   const [disclaimerDismissed, setDisclaimerDismissed] = useState(readDisclaimerDismissed);
   const [owned, setOwned] = useState<Set<number>>(loadOwned);
 
   // Write back to the hash on state changes (replaceState, no history entries).
   useEffect(() => {
-    const hash = serialiseState({ filters, selected });
+    const hash = serialiseState({ filters, selected, roleView });
     const url = `${window.location.pathname}${window.location.search}${hash ? `#${hash}` : ""}`;
     window.history.replaceState(null, "", url);
-  }, [filters, selected]);
+  }, [filters, selected, roleView]);
 
   const filtered = useMemo(() => applyFilters(ships, filters, owned), [filters, owned]);
 
@@ -125,6 +128,7 @@ export default function App() {
             onClear={() => setSelected(new Set())}
             owned={owned}
             onToggleOwned={toggleOwned}
+            roleView={roleView}
           />
           <ShipTable
             ships={filtered}
@@ -133,6 +137,8 @@ export default function App() {
             onToggleSelect={toggleSelect}
             owned={owned}
             onToggleOwned={toggleOwned}
+            roleView={roleView}
+            onRoleViewChange={setRoleView}
           />
         </div>
       </div>

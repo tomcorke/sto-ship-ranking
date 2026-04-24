@@ -1,9 +1,15 @@
 import { emptyFilters, type Filters } from "./filters.ts";
+import { ROLES, type Role } from "./scoringConfig.ts";
+
+export type RoleView = "overall" | Role;
 
 export interface UrlState {
   filters: Filters;
   selected: Set<number>;
+  roleView: RoleView;
 }
+
+const ROLE_SET = new Set<string>(ROLES);
 
 function encodeSet(s: Set<string>): string {
   return [...s].join(",");
@@ -32,7 +38,7 @@ function decodeIdSet(raw: string): Set<number> {
  * Serialise filters + selected ids into a URL hash (without leading `#`).
  * Empty fields are omitted so the hash stays short.
  */
-export function serialiseState({ filters, selected }: UrlState): string {
+export function serialiseState({ filters, selected, roleView }: UrlState): string {
   const parts: string[] = [];
   if (filters.factions.size > 0) parts.push(`faction=${encodeSet(filters.factions)}`);
   if (filters.careers.size > 0) parts.push(`career=${encodeSet(filters.careers)}`);
@@ -44,6 +50,7 @@ export function serialiseState({ filters, selected }: UrlState): string {
   if (filters.ownedMode === "owned") parts.push(`owned=owned`);
   else if (filters.ownedMode === "not-owned") parts.push(`owned=not-owned`);
   if (selected.size > 0) parts.push(`sel=${encodeIdSet(selected)}`);
+  if (roleView !== "overall") parts.push(`role=${roleView}`);
   return parts.join("&");
 }
 
@@ -54,8 +61,9 @@ export function serialiseState({ filters, selected }: UrlState): string {
 export function deserialiseState(hash: string): UrlState {
   const filters = emptyFilters();
   const selected = new Set<number>();
+  let roleView: RoleView = "overall";
   const raw = hash.startsWith("#") ? hash.slice(1) : hash;
-  if (!raw) return { filters, selected };
+  if (!raw) return { filters, selected, roleView };
   for (const pair of raw.split("&")) {
     const eq = pair.indexOf("=");
     if (eq < 0) continue;
@@ -90,7 +98,11 @@ export function deserialiseState(hash: string): UrlState {
       case "sel":
         for (const id of decodeIdSet(value)) selected.add(id);
         break;
+      case "role":
+        // Unknown values silently fall back to "overall".
+        if (ROLE_SET.has(value)) roleView = value as Role;
+        break;
     }
   }
-  return { filters, selected };
+  return { filters, selected, roleView };
 }

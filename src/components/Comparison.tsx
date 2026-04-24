@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import type { Ship } from "../domain/ship.ts";
 import type { ScoreBreakdown } from "../domain/score.ts";
+import { ROLES, type Role } from "../domain/scoringConfig.ts";
 import { summariseWinners } from "../domain/comparisonSummary.ts";
+import type { RoleView } from "../domain/urlState.ts";
 
 interface Props {
   ships: Ship[];
@@ -10,6 +12,92 @@ interface Props {
   onClear: () => void;
   owned: Set<number>;
   onToggleOwned: (id: number) => void;
+  roleView: RoleView;
+}
+
+const ROLE_SHORT: Record<Role, string> = {
+  dps: "DPS",
+  tank: "TNK",
+  sci: "SCI",
+  support: "SUP",
+};
+
+const ROLE_LONG: Record<Role, string> = {
+  dps: "DPS",
+  tank: "Tank",
+  sci: "Sci",
+  support: "Support",
+};
+
+interface RoleStripeCell {
+  role: Role;
+  value: number;
+  // Position in [0, 1] across the selected ships; used for shading. 0.5
+  // when there is no spread.
+  shade: number;
+  best: boolean;
+}
+
+function buildRoleStripes(
+  ships: Ship[],
+  scores: Map<number, ScoreBreakdown>,
+): Map<number, RoleStripeCell[]> {
+  // min/max across the SELECTED ships per role, so the stripe shows
+  // relative standing within the comparison (not the full fleet).
+  const minByRole: Record<Role, number> = {
+    dps: Infinity,
+    tank: Infinity,
+    sci: Infinity,
+    support: Infinity,
+  };
+  const maxByRole: Record<Role, number> = {
+    dps: -Infinity,
+    tank: -Infinity,
+    sci: -Infinity,
+    support: -Infinity,
+  };
+  for (const s of ships) {
+    const bd = scores.get(s.id);
+    if (!bd?.roles) continue;
+    for (const r of ROLES) {
+      const v = bd.roles[r].total;
+      if (v < minByRole[r]) minByRole[r] = v;
+      if (v > maxByRole[r]) maxByRole[r] = v;
+    }
+  }
+  const out = new Map<number, RoleStripeCell[]>();
+  for (const s of ships) {
+    const bd = scores.get(s.id);
+    const cells: RoleStripeCell[] = ROLES.map((r) => {
+      const v = bd?.roles?.[r].total ?? 0;
+      const lo = minByRole[r];
+      const hi = maxByRole[r];
+      const spread = hi - lo;
+      const shade = spread > 0 && Number.isFinite(lo) ? (v - lo) / spread : 0.5;
+      return { role: r, value: v, shade, best: bd?.bestRole === r };
+    });
+    out.set(s.id, cells);
+  }
+  return out;
+}
+
+function RoleStripe({ cells }: { cells: RoleStripeCell[] }) {
+  return (
+    <div className="role-stripe" role="group" aria-label="Role scores">
+      {cells.map((c) => (
+        <span
+          key={c.role}
+          className={`role-stripe-cell ${c.best ? "best" : ""}`}
+          data-role={c.role}
+          title={`${ROLE_LONG[c.role]}: ${c.value.toFixed(1)}${c.best ? " (best)" : ""}`}
+          style={{ "--role-shade": c.shade } as CSSProperties}
+        >
+          <span className="role-stripe-label">{ROLE_SHORT[c.role]}</span>
+          <span className="role-stripe-val">{c.value.toFixed(0)}</span>
+        </span>
+      ))}
+    </div>
+  );
 }
 
 const COLLAPSED_KEY = "sto-ship-ranking.comparison.collapsed";
@@ -48,7 +136,21 @@ interface Section {
   rows: Row[];
 }
 
-export function Comparison({ ships, scores, onRemove, onClear, owned, onToggleOwned }: Props) {
+export function Comparison({
+  ships,
+  scores,
+  onRemove,
+  onClear,
+  owned,
+  onToggleOwned,
+  roleView: _roleView,
+}: Props) {
+  // roleView is threaded through but not directly consumed in Comparison
+  // today - the role stripe shows all four roles regardless of the
+  // selected tab. Kept in props to keep the contract consistent and to
+  // avoid unused-arg churn if the stripe later wants to highlight the
+  // active tab.
+  void _roleView;
   const [copied, setCopied] = useState(false);
   const [collapsed, setCollapsed] = useState(readCollapsed);
 
@@ -184,6 +286,7 @@ function FullTable({
   onRemove: (id: number) => void;
 }) {
   const sections = buildSections(ships, scores);
+  const stripes = buildRoleStripes(ships, scores);
   return (
     <div className="comparison-table-wrap">
       <table className="comparison-table">
@@ -192,6 +295,7 @@ function FullTable({
             <th className="label-col">Category</th>
             {ships.map((s) => {
               const isOwned = owned.has(s.id);
+              const cells = stripes.get(s.id);
               return (
                 <th key={s.id}>
                   <div className="comp-ship-head">
@@ -214,6 +318,7 @@ function FullTable({
                       ×
                     </button>
                   </div>
+                  {cells && <RoleStripe cells={cells} />}
                 </th>
               );
             })}
@@ -246,17 +351,21 @@ function CompactTable({
 
   const rowData = ships.map((s, i) => {
     const bd = breakdowns[i];
+    const bestRole = bd?.bestRole;
+    const bestRoleScore = bestRole && bd?.roles ? bd.roles[bestRole].total : 0;
     return {
       ship: s,
       bd,
       total: bd?.total ?? 0,
       weapons: catPoints(bd, "weapons"),
       consoles: catPoints(bd, "consoles"),
-      boff: catPoints(bd, "abilities"),
+      boff: catPoints(bd, "boffAbilities"),
       trait: catPoints(bd, "trait"),
       hangars: catPoints(bd, "hangars"),
       defense: catPoints(bd, "defense"),
       mobility: catPoints(bd, "mobility"),
+      bestRole,
+      bestRoleScore,
     };
   });
 
@@ -298,6 +407,7 @@ function CompactTable({
             <th>Hngr</th>
             <th>Def</th>
             <th>Mob</th>
+            <th>Role</th>
             <th>Faction</th>
             <th>Type</th>
           </tr>
@@ -349,6 +459,20 @@ function CompactTable({
                 </td>
                 <td className={isWinner("mobility", r.mobility) ? "winner" : ""}>
                   {r.mobility.toFixed(1)}
+                </td>
+                <td className="role-badge-cell">
+                  {r.bestRole ? (
+                    <span
+                      className="role-badge"
+                      data-role={r.bestRole}
+                      title={`Best role: ${ROLE_LONG[r.bestRole]} (${r.bestRoleScore.toFixed(1)})`}
+                    >
+                      <span className="role-badge-label">{ROLE_SHORT[r.bestRole]}</span>
+                      <span className="role-badge-val">{r.bestRoleScore.toFixed(0)}</span>
+                    </span>
+                  ) : (
+                    "-"
+                  )}
                 </td>
                 <td>{s.faction}</td>
                 <td>{s.typeSimplified}</td>

@@ -1,11 +1,27 @@
 import {
   DEFAULT_CONFIG,
+  ROLES,
   type FleetStatAxis,
   type FleetStats,
+  type Role,
+  type RoleWeights,
   type ScoringConfig,
 } from "./scoringConfig.ts";
 import type { Ship } from "./ship.ts";
+import { suggestRole } from "./roleDetect.ts";
 import { lookupTraitOverride, type TraitOverride } from "./traitOverrides.ts";
+
+export interface RoleScoreCategory {
+  key: string;
+  label: string;
+  points: number;
+}
+
+export interface RoleScore {
+  role: Role;
+  total: number;
+  categories: RoleScoreCategory[];
+}
 
 export interface ScoreBreakdown {
   total: number;
@@ -16,6 +32,19 @@ export interface ScoreBreakdown {
     weight: number;
     detail: string;
   }[];
+  // Present when the active config has a `roles` overlay. Scored by
+  // applying the per-role multipliers over the existing category
+  // `points`, so the per-category shape in each RoleScore mirrors the
+  // overall breakdown with a reweighted scalar.
+  roles?: Record<Role, RoleScore>;
+  // Role derived from the ship's typeSimplified. Useful for surfacing a
+  // "this is primarily a ..." hint even when the user is viewing the
+  // overall ranking.
+  suggestedRole?: Role;
+  // The role where this ship scores highest after overlays are applied.
+  // May differ from suggestedRole when a ship's structural strengths do
+  // not match its nominal class.
+  bestRole?: Role;
 }
 
 // Trait keyword banks. Kept inline because the weights (not the keywords)
@@ -363,7 +392,47 @@ export function scoreShip(
   });
 
   const total = cats.reduce((s, c) => s + c.points, 0);
-  return { total: Math.round(total * 10) / 10, categories: cats };
+  const breakdown: ScoreBreakdown = {
+    total: Math.round(total * 10) / 10,
+    categories: cats,
+  };
+
+  if (config.roles) {
+    const roles: Record<Role, RoleScore> = {} as Record<Role, RoleScore>;
+    for (const role of ROLES) {
+      const overlay = config.roles[role];
+      const roleCats: RoleScoreCategory[] = cats.map((c) => ({
+        key: c.key,
+        label: c.label,
+        points: c.points * multiplierFor(overlay, c.key),
+      }));
+      const roleTotal = roleCats.reduce((s, c) => s + c.points, 0);
+      roles[role] = {
+        role,
+        total: Math.round(roleTotal * 10) / 10,
+        categories: roleCats,
+      };
+    }
+    breakdown.roles = roles;
+    breakdown.suggestedRole = suggestRole(ship.typeSimplified);
+    // argmax across roles; ties resolve to whichever role hits the max
+    // first in ROLES order, which keeps behaviour deterministic.
+    let best: Role = ROLES[0];
+    for (const role of ROLES) {
+      if (roles[role].total > roles[best].total) best = role;
+    }
+    breakdown.bestRole = best;
+  }
+
+  return breakdown;
+}
+
+function multiplierFor(overlay: RoleWeights, key: string): number {
+  // Category keys map 1:1 to RoleWeights fields. Any key we do not
+  // recognise (or an overlay that omits the key) falls back to 1.0 so
+  // totals stay neutral for unspecified axes.
+  const v = (overlay as Record<string, number | undefined>)[key];
+  return typeof v === "number" ? v : 1;
 }
 
 export function scoreAll(
