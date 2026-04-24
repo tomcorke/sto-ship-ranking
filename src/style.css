@@ -735,18 +735,15 @@ input[type="search"] {
   margin-right: 0.5rem;
 }
 
-.wiki-link {
+.ship-wiki-link {
+  margin-left: 0.3rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
-  font-size: 0.7rem;
   text-decoration: none;
-  border: 1px solid var(--border);
-  padding: 0 0.3rem;
-  border-radius: 4px;
 }
 
-.wiki-link:hover {
+.ship-wiki-link:hover {
   color: var(--accent);
-  border-color: var(--accent);
 }
 
 button {

@@ -38,6 +38,13 @@ export default function App() {
   const sources = useMemo(() => uniqueValues(ships, (s) => s.source), []);
   const shipTypes = useMemo(() => uniqueValues(ships, (s) => s.typeSimplified), []);
   const careers = useMemo(() => uniqueValues(ships, (s) => s.career || ""), []);
+  const releaseYears = useMemo(() => {
+    const seen = new Set<string>();
+    for (const s of ships) {
+      if (s.year != null) seen.add(String(s.year));
+    }
+    return [...seen].sort((a, b) => Number(b) - Number(a));
+  }, []);
 
   const selectedShips = useMemo(() => ships.filter((s) => selected.has(s.id)), [selected]);
 
@@ -111,6 +118,7 @@ export default function App() {
           sources={sources}
           shipTypes={shipTypes}
           careers={careers}
+          releaseYears={releaseYears}
           onChange={setFilters}
           totalMatching={filtered.length}
           totalAll={ships.length}

@@ -115,13 +115,14 @@ export function ShipTable({
                   <span className="ship-name">{s.name}</span>
                   {s.wikiUrl && (
                     <a
-                      className="wiki-link"
+                      className="ship-wiki-link"
                       href={s.wikiUrl}
                       target="_blank"
-                      rel="noreferrer"
+                      rel="noreferrer noopener"
+                      aria-label={`${s.name} on stowiki`}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      wiki
+                      ↗
                     </a>
                   )}
                 </td>

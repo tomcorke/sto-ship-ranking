@@ -120,4 +120,17 @@ describe("applyFilters", () => {
     const result = applyFilters(ships, f, new Set([2, 4]));
     expect(result.map((s) => s.id).sort((a, b) => a - b)).toEqual([1, 3]);
   });
+
+  it("releaseYears filter keeps only ships whose year string is in the set", () => {
+    const yearShips: Ship[] = [
+      makeShip({ id: 10, name: "Old", year: 2020 }),
+      makeShip({ id: 11, name: "Mid", year: 2023 }),
+      makeShip({ id: 12, name: "New", year: 2025 }),
+      makeShip({ id: 13, name: "Newer", year: 2026 }),
+    ];
+    const f = emptyFilters();
+    f.releaseYears = new Set(["2025", "2026"]);
+    const result = applyFilters(yearShips, f, new Set());
+    expect(result.map((s) => s.id).sort((a, b) => a - b)).toEqual([12, 13]);
+  });
 });
