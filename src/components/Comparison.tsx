@@ -12,19 +12,34 @@ interface Props {
   onToggleOwned: (id: number) => void;
 }
 
+const COLLAPSED_KEY = "sto-ship-ranking.comparison.collapsed";
+const COMPACT_THRESHOLD = 5;
+
+const readCollapsed = (): boolean => {
+  try {
+    const v = localStorage.getItem(COLLAPSED_KEY);
+    return v === null ? true : v === "1";
+  } catch {
+    return true;
+  }
+};
+
+const writeCollapsed = (v: boolean) => {
+  try {
+    localStorage.setItem(COLLAPSED_KEY, v ? "1" : "0");
+  } catch {
+    // ignore quota / privacy-mode errors
+  }
+};
+
 interface Row {
   key: string;
   label: string;
-  // Values per ship. Numbers used for winner highlighting; strings just display.
   values: (number | string)[];
   numeric: boolean;
-  // Higher is better when true, lower when false. Ignored if !numeric.
   higherBetter: boolean;
-  // Secondary rows shown in a muted style (e.g. score components).
   muted?: boolean;
-  // Indent breakdown rows (CSS padding) rather than using leading whitespace.
   subrow?: boolean;
-  // Mark the total-score row so it can be bolded/emphasised.
   total?: boolean;
 }
 
@@ -35,18 +50,19 @@ interface Section {
 
 export function Comparison({ ships, scores, onRemove, onClear, owned, onToggleOwned }: Props) {
   const [copied, setCopied] = useState(false);
+  const [collapsed, setCollapsed] = useState(readCollapsed);
 
   if (ships.length === 0) {
-    return (
-      <section className="comparison empty">
-        <h2>Comparison</h2>
-        <p>Tick ships in the table to compare them here.</p>
-      </section>
-    );
+    return null;
   }
 
-  const sections = buildSections(ships, scores);
-  const summary = summariseWinners(ships, scores);
+  const toggleCollapsed = () => {
+    setCollapsed((c) => {
+      const next = !c;
+      writeCollapsed(next);
+      return next;
+    });
+  };
 
   const handleCopy = async () => {
     try {
@@ -58,10 +74,40 @@ export function Comparison({ ships, scores, onRemove, onClear, owned, onToggleOw
     }
   };
 
+  const compact = ships.length >= COMPACT_THRESHOLD;
+  const summary = summariseWinners(ships, scores);
+
   return (
-    <section className="comparison">
+    <section className={`comparison ${collapsed ? "is-collapsed" : "is-expanded"}`}>
       <div className="comparison-header">
-        <h2>Comparison ({ships.length})</h2>
+        <button
+          type="button"
+          className="comparison-toggle"
+          aria-expanded={!collapsed}
+          onClick={toggleCollapsed}
+        >
+          <span className="caret" aria-hidden="true">
+            {collapsed ? "▸" : "▾"}
+          </span>
+          <span>Comparison ({ships.length})</span>
+        </button>
+        <div className="comparison-chips" role="list">
+          {ships.map((s) => (
+            <span className="comp-chip" key={s.id} role="listitem" data-faction={s.faction}>
+              <span className="comp-chip-name" title={s.name}>
+                {s.name}
+              </span>
+              <button
+                type="button"
+                className="comp-chip-remove"
+                onClick={() => onRemove(s.id)}
+                aria-label={`Remove ${s.name} from comparison`}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
         <div className="comparison-actions">
           <button type="button" className="secondary" onClick={handleCopy}>
             {copied ? "Copied!" : "Copy link"}
@@ -71,80 +117,251 @@ export function Comparison({ ships, scores, onRemove, onClear, owned, onToggleOw
           </button>
         </div>
       </div>
-      <div className="comparison-table-wrap">
-        <table className="comparison-table">
-          <thead>
-            <tr>
-              <th className="label-col">Category</th>
-              {ships.map((s) => {
-                const isOwned = owned.has(s.id);
-                return (
-                  <th key={s.id}>
-                    <div className="comp-ship-head">
-                      <span>{s.name}</span>
-                      <button
-                        type="button"
-                        className="owned-toggle"
-                        aria-pressed={isOwned}
-                        aria-label={
-                          isOwned ? `Unmark ${s.name} as owned` : `Mark ${s.name} as owned`
-                        }
-                        onClick={() => onToggleOwned(s.id)}
-                      >
-                        {isOwned ? "★" : "☆"}
-                      </button>
-                      <button
-                        type="button"
-                        className="link"
-                        onClick={() => onRemove(s.id)}
-                        aria-label={`Remove ${s.name}`}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </th>
-                );
-              })}
-            </tr>
-          </thead>
-          {sections.map((section) => (
-            <SectionBody key={section.title} section={section} shipCount={ships.length} />
-          ))}
-        </table>
-      </div>
-      {summary && (
-        <p className="why-wins">
-          <strong>{summary.winner.name}</strong>
-          {summary.tied ? " (tied on total)" : ""}
-          {summary.leads.length > 0 ? (
-            <>
-              {" "}
-              leads on{" "}
-              {summary.leads.map((l, i) => (
-                <span key={l.key}>
-                  {i > 0 ? ", " : ""}
-                  <strong>{l.label}</strong> ({formatDelta(l.delta)})
-                </span>
-              ))}
-            </>
+
+      {!collapsed && (
+        <>
+          {compact ? (
+            <CompactTable
+              ships={ships}
+              scores={scores}
+              owned={owned}
+              onToggleOwned={onToggleOwned}
+              onRemove={onRemove}
+            />
           ) : (
-            " has the top total"
+            <FullTable
+              ships={ships}
+              scores={scores}
+              owned={owned}
+              onToggleOwned={onToggleOwned}
+              onRemove={onRemove}
+            />
           )}
-          {summary.trails.length > 0 && (
-            <>
-              ; trails on <strong>{summary.trails[0].label}</strong> (
-              {formatDelta(summary.trails[0].delta)})
-            </>
+          {summary && (
+            <p className="why-wins">
+              <strong>{summary.winner.name}</strong>
+              {summary.tied ? " (tied on total)" : ""}
+              {summary.leads.length > 0 ? (
+                <>
+                  {" "}
+                  leads on{" "}
+                  {summary.leads.map((l, i) => (
+                    <span key={l.key}>
+                      {i > 0 ? ", " : ""}
+                      <strong>{l.label}</strong> ({formatDelta(l.delta)})
+                    </span>
+                  ))}
+                </>
+              ) : (
+                " has the top total"
+              )}
+              {summary.trails.length > 0 && (
+                <>
+                  ; trails on <strong>{summary.trails[0].label}</strong> (
+                  {formatDelta(summary.trails[0].delta)})
+                </>
+              )}
+              .
+            </p>
           )}
-          .
-        </p>
+        </>
       )}
     </section>
   );
 }
 
+function FullTable({
+  ships,
+  scores,
+  owned,
+  onToggleOwned,
+  onRemove,
+}: {
+  ships: Ship[];
+  scores: Map<number, ScoreBreakdown>;
+  owned: Set<number>;
+  onToggleOwned: (id: number) => void;
+  onRemove: (id: number) => void;
+}) {
+  const sections = buildSections(ships, scores);
+  return (
+    <div className="comparison-table-wrap">
+      <table className="comparison-table">
+        <thead>
+          <tr>
+            <th className="label-col">Category</th>
+            {ships.map((s) => {
+              const isOwned = owned.has(s.id);
+              return (
+                <th key={s.id}>
+                  <div className="comp-ship-head">
+                    <span>{s.name}</span>
+                    <button
+                      type="button"
+                      className="owned-toggle"
+                      aria-pressed={isOwned}
+                      aria-label={isOwned ? `Unmark ${s.name} as owned` : `Mark ${s.name} as owned`}
+                      onClick={() => onToggleOwned(s.id)}
+                    >
+                      {isOwned ? "★" : "☆"}
+                    </button>
+                    <button
+                      type="button"
+                      className="link"
+                      onClick={() => onRemove(s.id)}
+                      aria-label={`Remove ${s.name}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                </th>
+              );
+            })}
+          </tr>
+        </thead>
+        {sections.map((section) => (
+          <SectionBody key={section.title} section={section} shipCount={ships.length} />
+        ))}
+      </table>
+    </div>
+  );
+}
+
+function CompactTable({
+  ships,
+  scores,
+  owned,
+  onToggleOwned,
+  onRemove,
+}: {
+  ships: Ship[];
+  scores: Map<number, ScoreBreakdown>;
+  owned: Set<number>;
+  onToggleOwned: (id: number) => void;
+  onRemove: (id: number) => void;
+}) {
+  const breakdowns = ships.map((s) => scores.get(s.id));
+  const catPoints = (bd: ScoreBreakdown | undefined, key: string): number =>
+    bd?.categories.find((c) => c.key === key)?.points ?? 0;
+
+  const rowData = ships.map((s, i) => {
+    const bd = breakdowns[i];
+    return {
+      ship: s,
+      bd,
+      total: bd?.total ?? 0,
+      weapons: catPoints(bd, "weapons"),
+      consoles: catPoints(bd, "consoles"),
+      boff: catPoints(bd, "abilities"),
+      trait: catPoints(bd, "trait"),
+      hangars: catPoints(bd, "hangars"),
+      defense: catPoints(bd, "defense"),
+      mobility: catPoints(bd, "mobility"),
+    };
+  });
+
+  const numericCols = [
+    "total",
+    "weapons",
+    "consoles",
+    "boff",
+    "trait",
+    "hangars",
+    "defense",
+    "mobility",
+  ] as const;
+
+  const colMax = new Map<string, number>();
+  for (const col of numericCols) {
+    colMax.set(col, Math.max(...rowData.map((r) => r[col])));
+  }
+  const isWinner = (col: (typeof numericCols)[number], value: number): boolean => {
+    const max = colMax.get(col) ?? 0;
+    if (max === 0) return false;
+    const allEqual = rowData.every((r) => r[col] === value);
+    if (allEqual) return false;
+    return value === max;
+  };
+
+  return (
+    <div className="comparison-compact-wrap">
+      <table className="comparison-compact">
+        <thead>
+          <tr>
+            <th className="compact-actions-col" aria-label="Actions"></th>
+            <th className="compact-name-col">Ship</th>
+            <th>Score</th>
+            <th>Wpn</th>
+            <th>Con</th>
+            <th>BOff</th>
+            <th>Trait</th>
+            <th>Hngr</th>
+            <th>Def</th>
+            <th>Mob</th>
+            <th>Faction</th>
+            <th>Type</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rowData.map((r) => {
+            const s = r.ship;
+            const ownedNow = owned.has(s.id);
+            return (
+              <tr key={s.id} data-faction={s.faction}>
+                <td className="compact-actions-col">
+                  <button
+                    type="button"
+                    className="owned-toggle"
+                    aria-pressed={ownedNow}
+                    aria-label={ownedNow ? `Unmark ${s.name} as owned` : `Mark ${s.name} as owned`}
+                    onClick={() => onToggleOwned(s.id)}
+                  >
+                    {ownedNow ? "★" : "☆"}
+                  </button>
+                  <button
+                    type="button"
+                    className="link"
+                    onClick={() => onRemove(s.id)}
+                    aria-label={`Remove ${s.name}`}
+                  >
+                    ×
+                  </button>
+                </td>
+                <td className="compact-name-col" title={s.name}>
+                  {s.name}
+                </td>
+                <td className={isWinner("total", r.total) ? "winner total" : "total"}>
+                  {r.total.toFixed(1)}
+                </td>
+                <td className={isWinner("weapons", r.weapons) ? "winner" : ""}>
+                  {r.weapons.toFixed(1)}
+                </td>
+                <td className={isWinner("consoles", r.consoles) ? "winner" : ""}>
+                  {r.consoles.toFixed(1)}
+                </td>
+                <td className={isWinner("boff", r.boff) ? "winner" : ""}>{r.boff.toFixed(1)}</td>
+                <td className={isWinner("trait", r.trait) ? "winner" : ""}>{r.trait.toFixed(1)}</td>
+                <td className={isWinner("hangars", r.hangars) ? "winner" : ""}>
+                  {r.hangars.toFixed(1)}
+                </td>
+                <td className={isWinner("defense", r.defense) ? "winner" : ""}>
+                  {r.defense.toFixed(1)}
+                </td>
+                <td className={isWinner("mobility", r.mobility) ? "winner" : ""}>
+                  {r.mobility.toFixed(1)}
+                </td>
+                <td>{s.faction}</td>
+                <td>{s.typeSimplified}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function SectionBody({ section, shipCount }: { section: Section; shipCount: number }) {
-  // Precompute per-row winners and maxAbs for bar widths.
   return (
     <tbody>
       <tr className="section-head">
@@ -200,8 +417,6 @@ function buildSections(ships: Ship[], scores: Map<number, ScoreBreakdown>): Sect
   const breakdowns = ships.map((s) => scores.get(s.id));
   const scoreValues = breakdowns.map((b) => b?.total ?? 0);
 
-  // Derive a union of component keys across all selected ships so every
-  // ship's breakdown lines up under the same label.
   const compKeys: string[] = [];
   const compLabels = new Map<string, string>();
   for (const bd of breakdowns) {
