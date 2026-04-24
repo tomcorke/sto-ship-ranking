@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import type { Ship } from "../domain/ship.ts";
 import type { ScoreBreakdown } from "../domain/score.ts";
 import type { Role } from "../domain/scoringConfig.ts";
@@ -194,6 +194,23 @@ export function Comparison({
   );
 }
 
+type SortKey =
+  | "rank"
+  | "name"
+  | "total"
+  | "weapons"
+  | "consoles"
+  | "boff"
+  | "trait"
+  | "hangars"
+  | "defense"
+  | "mobility"
+  | "role"
+  | "faction"
+  | "type";
+
+type SortDir = "asc" | "desc";
+
 function CompactTable({
   ships,
   scores,
@@ -213,34 +230,54 @@ function CompactTable({
   rankMap: Map<number, number>;
   percentMap: Map<number, number>;
 }) {
-  const breakdowns = ships.map((s) => scores.get(s.id));
-  // Category lookup pulls from the active role overlay when roleView is
-  // non-overall (so DPS lights up Weapons, Tank lights up Defense, etc.);
-  // falls back to overall categories when no overlay is present.
-  const catPoints = (bd: ScoreBreakdown | undefined, key: string): number => {
-    const view = viewFor(bd, roleView);
-    return view.categories.find((c) => c.key === key)?.points ?? 0;
+  const [sortKey, setSortKey] = useState<SortKey>("rank");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const clickSort = (k: SortKey) => {
+    if (sortKey === k) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(k);
+      // Text columns default ascending; numeric default descending so the
+      // top value lands at the top.
+      const ascText: SortKey[] = ["rank", "name", "faction", "type"];
+      setSortDir(ascText.includes(k) ? "asc" : "desc");
+    }
   };
 
-  const rowData = ships.map((s, i) => {
-    const bd = breakdowns[i];
-    const bestRole = bd?.bestRole;
-    const bestRoleScore = bestRole && bd?.roles ? bd.roles[bestRole].total : 0;
-    return {
-      ship: s,
-      bd,
-      total: viewFor(bd, roleView).total,
-      weapons: catPoints(bd, "weapons"),
-      consoles: catPoints(bd, "consoles"),
-      boff: catPoints(bd, "boffAbilities"),
-      trait: catPoints(bd, "trait"),
-      hangars: catPoints(bd, "hangars"),
-      defense: catPoints(bd, "defense"),
-      mobility: catPoints(bd, "mobility"),
-      bestRole,
-      bestRoleScore,
+  // The role column displays either the active role's score (when a role
+  // tab is active) or the best role (when Overall is active).
+  const activeRole: Role | null = roleView === "overall" ? null : (roleView as Role);
+
+  const rowData = useMemo(() => {
+    const catPoints = (bd: ScoreBreakdown | undefined, key: string): number => {
+      const view = viewFor(bd, roleView);
+      return view.categories.find((c) => c.key === key)?.points ?? 0;
     };
-  });
+    return ships.map((s) => {
+      const bd = scores.get(s.id);
+      const bestRole = bd?.bestRole;
+      const bestRoleScore = bestRole && bd?.roles ? bd.roles[bestRole].total : 0;
+      const shownRole: Role | undefined = activeRole ?? bestRole;
+      const shownRoleScore = activeRole && bd?.roles ? bd.roles[activeRole].total : bestRoleScore;
+      return {
+        ship: s,
+        bd,
+        total: viewFor(bd, roleView).total,
+        weapons: catPoints(bd, "weapons"),
+        consoles: catPoints(bd, "consoles"),
+        boff: catPoints(bd, "boffAbilities"),
+        trait: catPoints(bd, "trait"),
+        hangars: catPoints(bd, "hangars"),
+        defense: catPoints(bd, "defense"),
+        mobility: catPoints(bd, "mobility"),
+        bestRole,
+        shownRole,
+        shownRoleScore,
+        isBestRole: !!shownRole && shownRole === bestRole,
+      };
+    });
+  }, [ships, scores, roleView, activeRole]);
 
   const numericCols = [
     "total",
@@ -267,36 +304,86 @@ function CompactTable({
     return value === max;
   };
 
+  const sorted = useMemo(() => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    const arr = [...rowData];
+    const cmp = (a: (typeof rowData)[number], b: (typeof rowData)[number]): number => {
+      switch (sortKey) {
+        case "rank": {
+          const ra = rankMap.get(a.ship.id) ?? Number.POSITIVE_INFINITY;
+          const rb = rankMap.get(b.ship.id) ?? Number.POSITIVE_INFINITY;
+          return ra - rb;
+        }
+        case "name":
+          return a.ship.name.localeCompare(b.ship.name);
+        case "faction":
+          return a.ship.faction.localeCompare(b.ship.faction);
+        case "type":
+          return a.ship.typeSimplified.localeCompare(b.ship.typeSimplified);
+        case "role":
+          return a.shownRoleScore - b.shownRoleScore;
+        default:
+          return a[sortKey] - b[sortKey];
+      }
+    };
+    arr.sort((a, b) => dir * cmp(a, b));
+    return arr;
+  }, [rowData, sortKey, sortDir, rankMap]);
+
   return (
     <div className="comparison-compact-wrap">
       <table className="comparison-compact">
         <thead>
           <tr>
             <th className="compact-actions-col" aria-label="Actions"></th>
-            <th className="compact-name-col">Ship</th>
-            <th className="rank-col" title="Rank within current view">
-              #
-            </th>
+            <CTh
+              label="Ship"
+              k="name"
+              cur={sortKey}
+              dir={sortDir}
+              on={clickSort}
+              className="compact-name-col"
+            />
+            <CTh
+              label="#"
+              k="rank"
+              cur={sortKey}
+              dir={sortDir}
+              on={clickSort}
+              className="rank-col"
+              title="Rank within current view"
+            />
             <th className="percent-col" title="Percent of top-ranked ship's score">
               %
             </th>
-            <th>Score</th>
-            <th>Wpn</th>
-            <th>Con</th>
-            <th>BOff</th>
-            <th>Trait</th>
-            <th>Hngr</th>
-            <th>Def</th>
-            <th>Mob</th>
-            <th>Role</th>
-            <th>Faction</th>
-            <th>Type</th>
+            <CTh label="Score" k="total" cur={sortKey} dir={sortDir} on={clickSort} />
+            <CTh label="Wpn" k="weapons" cur={sortKey} dir={sortDir} on={clickSort} />
+            <CTh label="Con" k="consoles" cur={sortKey} dir={sortDir} on={clickSort} />
+            <CTh label="BOff" k="boff" cur={sortKey} dir={sortDir} on={clickSort} />
+            <CTh label="Trait" k="trait" cur={sortKey} dir={sortDir} on={clickSort} />
+            <CTh label="Hngr" k="hangars" cur={sortKey} dir={sortDir} on={clickSort} />
+            <CTh label="Def" k="defense" cur={sortKey} dir={sortDir} on={clickSort} />
+            <CTh label="Mob" k="mobility" cur={sortKey} dir={sortDir} on={clickSort} />
+            <CTh
+              label={activeRole ? `${ROLE_LONG[activeRole]} role` : "Best role"}
+              k="role"
+              cur={sortKey}
+              dir={sortDir}
+              on={clickSort}
+            />
+            <CTh label="Faction" k="faction" cur={sortKey} dir={sortDir} on={clickSort} />
+            <CTh label="Type" k="type" cur={sortKey} dir={sortDir} on={clickSort} />
           </tr>
         </thead>
         <tbody>
-          {rowData.map((r) => {
+          {sorted.map((r) => {
             const s = r.ship;
             const ownedNow = owned.has(s.id);
+            const roleTitle = r.shownRole
+              ? activeRole
+                ? `${ROLE_LONG[activeRole]} score: ${r.shownRoleScore.toFixed(1)}${r.isBestRole ? " (best role)" : ""}`
+                : `Best role: ${ROLE_LONG[r.shownRole]} (${r.shownRoleScore.toFixed(1)})`
+              : "";
             return (
               <tr key={s.id} data-faction={s.faction}>
                 <td className="compact-actions-col">
@@ -357,14 +444,14 @@ function CompactTable({
                   {r.mobility.toFixed(1)}
                 </td>
                 <td className="role-badge-cell">
-                  {r.bestRole ? (
+                  {r.shownRole ? (
                     <span
-                      className="role-badge"
-                      data-role={r.bestRole}
-                      title={`Best role: ${ROLE_LONG[r.bestRole]} (${r.bestRoleScore.toFixed(1)})`}
+                      className={`role-badge ${r.isBestRole ? "is-best" : ""}`}
+                      data-role={r.shownRole}
+                      title={roleTitle}
                     >
-                      <span className="role-badge-label">{ROLE_SHORT[r.bestRole]}</span>
-                      <span className="role-badge-val">{r.bestRoleScore.toFixed(0)}</span>
+                      <span className="role-badge-label">{ROLE_SHORT[r.shownRole]}</span>
+                      <span className="role-badge-val">{r.shownRoleScore.toFixed(0)}</span>
                     </span>
                   ) : (
                     "-"
@@ -378,6 +465,40 @@ function CompactTable({
         </tbody>
       </table>
     </div>
+  );
+}
+
+function CTh({
+  label,
+  k,
+  cur,
+  dir,
+  on,
+  className,
+  title,
+}: {
+  label: ReactNode;
+  k: SortKey;
+  cur: SortKey;
+  dir: SortDir;
+  on: (k: SortKey) => void;
+  className?: string;
+  title?: string;
+}) {
+  const active = cur === k;
+  const ariaSort: "ascending" | "descending" | "none" = active
+    ? dir === "asc"
+      ? "ascending"
+      : "descending"
+    : "none";
+  const classes = ["sortable", active ? "active" : "", className ?? ""].filter(Boolean).join(" ");
+  return (
+    <th className={classes} aria-sort={ariaSort} title={title}>
+      <button type="button" className="sort-btn" onClick={() => on(k)}>
+        {label}
+        {active ? (dir === "asc" ? " ▲" : " ▼") : ""}
+      </button>
+    </th>
   );
 }
 
