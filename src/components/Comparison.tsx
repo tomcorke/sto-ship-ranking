@@ -74,7 +74,7 @@ export function Comparison({ ships, scores, onRemove, onClear }: Props) {
                   const isWinner = row.numeric && winners[i].has(j);
                   return (
                     <td key={j} className={isWinner ? "winner" : ""}>
-                      {typeof v === "number" ? formatNumber(v, row.key) : v || "—"}
+                      {typeof v === "number" ? formatNumber(v, row.key) : v || "-"}
                     </td>
                   );
                 })}

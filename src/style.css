@@ -512,3 +512,16 @@ button.link:hover {
 .ship-table tbody tr {
   border-left: 3px solid var(--faction-color, #888);
 }
+
+.app-footer {
+  margin-top: 3rem;
+  padding: 1.25rem 0 0.5rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.app-footer a {
+  color: var(--accent);
+}

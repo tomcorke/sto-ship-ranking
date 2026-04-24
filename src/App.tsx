@@ -1,35 +1,30 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ships, scores } from "./data/shipsData.ts";
 import { ActiveFilters, FiltersPanel } from "./components/Filters.tsx";
 import { ShipTable } from "./components/ShipTable.tsx";
 import { Comparison } from "./components/Comparison.tsx";
-import { applyFilters, emptyFilters, uniqueValues } from "./domain/filters.ts";
+import { applyFilters, uniqueValues } from "./domain/filters.ts";
 import { deserialiseState, serialiseState } from "./domain/urlState.ts";
 
 const DISCLAIMER_KEY = "sto-ship-ranking.disclaimer.dismissed";
 
-export default function App() {
-  const [filters, setFilters] = useState(emptyFilters);
-  const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [disclaimerDismissed, setDisclaimerDismissed] = useState(true);
-  const hydrated = useRef(false);
+const readDisclaimerDismissed = (): boolean => {
+  try {
+    return localStorage.getItem(DISCLAIMER_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
 
-  // Hydrate from hash + localStorage once on mount.
-  useEffect(() => {
-    const parsed = deserialiseState(window.location.hash);
-    setFilters(parsed.filters);
-    setSelected(parsed.selected);
-    try {
-      setDisclaimerDismissed(localStorage.getItem(DISCLAIMER_KEY) === "1");
-    } catch {
-      setDisclaimerDismissed(false);
-    }
-    hydrated.current = true;
-  }, []);
+export default function App() {
+  const [filters, setFilters] = useState(() => deserialiseState(window.location.hash).filters);
+  const [selected, setSelected] = useState<Set<number>>(
+    () => deserialiseState(window.location.hash).selected,
+  );
+  const [disclaimerDismissed, setDisclaimerDismissed] = useState(readDisclaimerDismissed);
 
   // Write back to the hash on state changes (replaceState, no history entries).
   useEffect(() => {
-    if (!hydrated.current) return;
     const hash = serialiseState({ filters, selected });
     const url = `${window.location.pathname}${window.location.search}${hash ? `#${hash}` : ""}`;
     window.history.replaceState(null, "", url);
@@ -67,8 +62,16 @@ export default function App() {
       <header>
         <h1>STO Ship Ranking</h1>
         <p>
-          Filter, compare, and rank Star Trek Online starships. Data: {ships.length} T6 ships from
-          Fleffle's list.
+          Filter, compare, and rank Star Trek Online starships. {ships.length} T6 ships. Data
+          courtesy of{" "}
+          <a
+            href="https://docs.google.com/spreadsheets/d/1SSsxWmE8Oz35D6MvLheFNUfhWerHNkUGOGtjxLlrTuA/edit"
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            Fleffle's T6 Ship List v2
+          </a>{" "}
+          (maintained by @vanderben).
         </p>
       </header>
 
@@ -117,6 +120,22 @@ export default function App() {
           />
         </div>
       </div>
+
+      <footer className="app-footer">
+        <p>
+          Ship stats aggregated from{" "}
+          <a
+            href="https://docs.google.com/spreadsheets/d/1SSsxWmE8Oz35D6MvLheFNUfhWerHNkUGOGtjxLlrTuA/edit"
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            Fleffle's T6 Ship List v2
+          </a>
+          , a community-maintained catalogue by @vanderben. All credit for the underlying data goes
+          to Fleffle and contributors. This site is an unofficial visualisation tool and is not
+          affiliated with Cryptic Studios, Perfect World, or Star Trek Online.
+        </p>
+      </footer>
     </main>
   );
 }

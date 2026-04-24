@@ -140,28 +140,28 @@ export function ActiveFilters({ filters, onChange }: ActiveFiltersProps) {
   for (const v of filters.factions) {
     chips.push({
       key: `faction:${v}`,
-      label: v || "—",
+      label: v || "-",
       onRemove: () => onChange({ ...filters, factions: removeFrom(filters.factions, v) }),
     });
   }
   for (const v of filters.careers) {
     chips.push({
       key: `career:${v}`,
-      label: v || "—",
+      label: v || "-",
       onRemove: () => onChange({ ...filters, careers: removeFrom(filters.careers, v) }),
     });
   }
   for (const v of filters.sources) {
     chips.push({
       key: `source:${v}`,
-      label: v || "—",
+      label: v || "-",
       onRemove: () => onChange({ ...filters, sources: removeFrom(filters.sources, v) }),
     });
   }
   for (const v of filters.shipTypes) {
     chips.push({
       key: `type:${v}`,
-      label: v || "—",
+      label: v || "-",
       onRemove: () => onChange({ ...filters, shipTypes: removeFrom(filters.shipTypes, v) }),
     });
   }
@@ -228,7 +228,7 @@ function ChipGroup({ label, values, selected, onToggle }: ChipGroupProps) {
               aria-pressed={on}
               onClick={() => onToggle(v)}
             >
-              {v || "—"}
+              {v || "-"}
             </button>
           );
         })}

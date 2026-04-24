@@ -75,7 +75,7 @@ export function ShipTable({ ships, scores, selected, onToggleSelect }: Props) {
                     onClick={(e) => e.stopPropagation()}
                   />
                 </td>
-                <td className="score">{score?.total.toFixed(1) ?? "—"}</td>
+                <td className="score">{score?.total.toFixed(1) ?? "-"}</td>
                 <td>
                   <span className="ship-name">{s.name}</span>
                   {s.wikiUrl && (

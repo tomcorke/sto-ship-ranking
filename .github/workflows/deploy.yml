@@ -24,6 +24,8 @@ jobs:
           cache: true
       - run: vp install
       - run: vp build
+        env:
+          VITE_BUILD_FOR_PAGES: "1"
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
