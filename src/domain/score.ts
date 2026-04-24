@@ -5,6 +5,7 @@ import {
   type ScoringConfig,
 } from "./scoringConfig.ts";
 import type { Ship } from "./ship.ts";
+import { lookupTraitOverride, type TraitOverride } from "./traitOverrides.ts";
 
 export interface ScoreBreakdown {
   total: number;
@@ -95,6 +96,49 @@ function traitScore(summary: string, config: ScoringConfig): { damage: number; u
   const damage = Math.min(countStems(summary, TRAIT_KEYWORDS_DAMAGE), cap);
   const utility = Math.min(countStems(summary, TRAIT_KEYWORDS_UTILITY), cap);
   return { damage, utility };
+}
+
+export type TraitScoreSource = "curated" | "keyword" | "none";
+
+interface TraitScoreResult {
+  points: number;
+  detail: string;
+  source: TraitScoreSource;
+}
+
+function scoreTraitFromOverride(override: TraitOverride, config: ScoringConfig): TraitScoreResult {
+  const cap = config.trait.cap;
+  const dmg = Math.min(override.damage, cap);
+  const util = Math.min(override.utility, cap);
+  const surv = Math.min(override.survivability ?? 0, cap);
+  // Survivability has no dedicated axis weight yet. Price it at the
+  // midpoint between damage and utility weights so a well-rounded
+  // survivability-leaning trait still lands near a pure damage/utility
+  // pick of the same magnitude.
+  const survWeight = (config.trait.damage + config.trait.utility) / 2;
+  // Spec note lists this as `damage * 0.5`; we keep that shape but treat
+  // the 0.5 coefficient as an explicit midpoint-weighting so the config
+  // knobs still drive the score.
+  const points = dmg * config.trait.damage + util * config.trait.utility + surv * survWeight;
+  const detail = `curated: dmg=${dmg.toFixed(1)} util=${util.toFixed(1)} surv=${surv.toFixed(1)}`;
+  return { points, detail, source: "curated" };
+}
+
+function scoreTraitFromKeywords(summary: string, config: ScoringConfig): TraitScoreResult {
+  const { damage, utility } = traitScore(summary, config);
+  const points = damage * config.trait.damage + utility * config.trait.utility;
+  return {
+    points,
+    detail: `keyword: dmg ${damage}, util ${utility}`,
+    source: "keyword",
+  };
+}
+
+export function scoreTrait(ship: Ship, config: ScoringConfig): TraitScoreResult {
+  if (!ship.trait) return { points: 0, detail: "none", source: "none" };
+  const override = lookupTraitOverride(ship.trait.name);
+  if (override) return scoreTraitFromOverride(override, config);
+  return scoreTraitFromKeywords(ship.trait.summary, config);
 }
 
 // --- Fleet statistics ---------------------------------------------------
@@ -191,14 +235,15 @@ export function scoreShip(
   });
 
   // Trait -----------------------------------------------------------------
-  const trait = ship.trait ? traitScore(ship.trait.summary, config) : { damage: 0, utility: 0 };
-  const traitPts = trait.damage * config.trait.damage + trait.utility * config.trait.utility;
+  // Curated override table runs first; fall back to keyword scanning for
+  // traits we have not hand-scored. See traitOverrides.ts.
+  const traitResult = scoreTrait(ship, config);
   cats.push({
     key: "trait",
     label: "Starship trait",
-    points: traitPts,
+    points: traitResult.points,
     weight: 1,
-    detail: ship.trait ? `dmg ${trait.damage}, util ${trait.utility}` : "none",
+    detail: traitResult.detail,
   });
 
   // Hangars (diminishing returns, capped at 3 bays) ----------------------

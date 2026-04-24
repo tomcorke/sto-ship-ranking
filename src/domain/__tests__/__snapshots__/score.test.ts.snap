@@ -25,7 +25,7 @@ exports[`scoreShip > produces a stable category breakdown for a reference hand-b
       "weight": 0.5,
     },
     {
-      "detail": "dmg 3, util 1",
+      "detail": "keyword: dmg 3, util 1",
       "key": "trait",
       "label": "Starship trait",
       "points": 4.6,

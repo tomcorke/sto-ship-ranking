@@ -1,0 +1,212 @@
+{
+  "Withering Barrage": {
+    "damage": 3.0,
+    "utility": 0.5,
+    "survivability": 0,
+    "tags": ["cannon", "duration"],
+    "note": "Cannon Scatter Volley gains significantly increased duration. Strong on DHC DPS builds where C:SV uptime drives AoE damage; minor utility from the extra uptime overlapping with other buffs."
+  },
+  "Jubilant Cadence": {
+    "damage": 0.5,
+    "utility": 2.5,
+    "survivability": 0.5,
+    "tags": ["speed", "cdr", "stacking"],
+    "note": "Stacking speed/turn plus CDR at max stacks. Mostly mobility and cooldown utility; survivability bump from agility making incoming fire miss."
+  },
+  "Relaunch and Repair": {
+    "damage": 0.5,
+    "utility": 2.0,
+    "survivability": 1.5,
+    "tags": ["pets", "cdr", "heal"],
+    "note": "Carrier-only trait: pet launch reduces captain ability recharge and heals. Strong utility on carriers, provides hull heals to self and pets for survivability."
+  },
+  "Weapon System Synergy": {
+    "damage": 2.5,
+    "utility": 0.5,
+    "survivability": 0,
+    "tags": ["projectile", "stacking", "shield-pen"],
+    "note": "Stacking projectile damage plus shield penetration at 10 stacks. Niche; useful on hybrid energy+torpedo builds where stacks ramp naturally."
+  },
+  "Heart of Sol (et. al)": {
+    "damage": 3.0,
+    "utility": 1.0,
+    "survivability": 0,
+    "tags": ["haste", "energy-type", "apb"],
+    "note": "Haste and faction-specific energy damage on APB/Tactical Team use. Strong cat2-style damage boost, haste contributes utility, common on space tac builds."
+  },
+  "Out of Time": {
+    "damage": 0,
+    "utility": 2.0,
+    "survivability": -0.5,
+    "tags": ["cdr", "speed"],
+    "note": "Stacks at high speed for CDR on low speed. Good CDR potential but self-damage penalty slightly reduces survivability; situational on pilot builds."
+  },
+  "1.21 Terrawatts": {
+    "damage": 0,
+    "utility": 1.0,
+    "survivability": 0,
+    "tags": ["cdr", "situational"],
+    "note": "CDR on captain abilities triggered by taking electrical/radiation damage. Very situational - most encounters do not inflict these damage types reliably."
+  },
+  "Promise of Ferocity": {
+    "damage": 3.0,
+    "utility": 0.5,
+    "survivability": 0,
+    "tags": ["cat2", "stacking"],
+    "note": "Stacking weapon damage on Tactical or Pilot ability activation. Direct cat2 damage stacker; widely cited on r/stobuilds as a solid DPS trait."
+  },
+  "Painful Memories": {
+    "damage": 1.5,
+    "utility": 1.5,
+    "survivability": 0,
+    "tags": ["control", "dot"],
+    "note": "Engineering abilities apply Slow plus DoT. Good for control-oriented tank/hybrid builds, modest damage contribution via DoT."
+  },
+  "Improved Gravity Well": {
+    "damage": 2.5,
+    "utility": 2.0,
+    "survivability": 0,
+    "tags": ["science", "control", "exotic"],
+    "note": "Gravity Well duration extension and CDR. Cornerstone for science/exotic builds; damage from GW uptime, utility from CDR and added control duration."
+  },
+  "Photonic Boarding Party": {
+    "damage": 0.5,
+    "utility": 1.0,
+    "survivability": 0,
+    "tags": ["qol"],
+    "note": "Removes the hangar-pet cost of Boarding Party. Minor QoL improvement; Boarding Party itself is a weak ability, limiting overall value."
+  },
+  "Redirecting Arrays": {
+    "damage": 2.5,
+    "utility": 0.5,
+    "survivability": 0,
+    "tags": ["beam", "duration"],
+    "note": "Extends Beam Fire at Will duration on incoming damage. Strong on energy broadside builds where B:FAW is the primary firing mode."
+  },
+  "Stay At Your Posts": {
+    "damage": 1.5,
+    "utility": 2.0,
+    "survivability": 0,
+    "tags": ["cdr"],
+    "note": "Tactical ability CDR triggered by Engineering or Miracle Worker use. Good CDR for hybrid ENG/MW captains running tac abilities; damage comes indirectly via higher uptime."
+  },
+  "Majority - Minority": {
+    "damage": 2.0,
+    "utility": 0.5,
+    "survivability": 2.0,
+    "tags": ["hull", "conditional"],
+    "note": "Conditional: DRR/hardness/regen when majority HP, +damage/speed when minority. Tank mode survivability is strong; damage mode is sub-optimal since you are low HP."
+  },
+  "Evasion Specialist": {
+    "damage": 0,
+    "utility": 0.5,
+    "survivability": 2.5,
+    "tags": ["shields", "heal"],
+    "note": "Shield hardness and regen on EP2E or Pilot ability. Solid shield-tanking trait, particularly on pilot-spec ships running EP2E cycles."
+  },
+  "Hit and Run": {
+    "damage": 2.0,
+    "utility": 0.5,
+    "survivability": 1.5,
+    "tags": ["evasive", "critd"],
+    "note": "During Evasive Maneuvers: +DRR; after: +damage and CritD. Balanced offensive/defensive burst; common uptime is limited by EM cooldown."
+  },
+  "Repair Mode": {
+    "damage": 0,
+    "utility": 0,
+    "survivability": 2.5,
+    "tags": ["heal", "temp-hp", "disable"],
+    "note": "On taking damage: heal, temp HP, DRR - but disables self. Strong survivability when triggered; self-disable is a major drawback offsetting utility."
+  },
+  "Exotic Particle Shielding": {
+    "damage": 0,
+    "utility": 0.5,
+    "survivability": 2.0,
+    "tags": ["drr", "team"],
+    "note": "Damage resistance rating on team ability activation. Straightforward survivability buff, good uptime on builds using TT/ST/ET regularly."
+  },
+  "Heavy Tachyon Mine": {
+    "damage": 1.5,
+    "utility": 0.5,
+    "survivability": 0,
+    "tags": ["mine", "shield-drain"],
+    "note": "Creates a tachyon mine on firing mode activation. Minor passive damage output; mines deal shield drain which is niche in PvE."
+  },
+  "Charged Particle Reaction": {
+    "damage": 2.0,
+    "utility": 0.5,
+    "survivability": 0,
+    "tags": ["cpb", "aoe", "science"],
+    "note": "Affected targets emit secondary mini-CPBs. Synergises with science/exotic CPB builds for shield-stripping AoE; niche outside sci builds."
+  },
+  "Tachyon Dispersal": {
+    "damage": 1.0,
+    "utility": 2.0,
+    "survivability": 0,
+    "tags": ["shield-strip", "debuff"],
+    "note": "AoE shield DoT plus shield resistance debuff on Tachyon Beam. Good shield-stripping utility for team play, modest direct damage via the DoT."
+  },
+  "Built To Last": {
+    "damage": 0.5,
+    "utility": 1.5,
+    "survivability": 1.5,
+    "tags": ["hull-regen", "weapon-cost"],
+    "note": "On Hull Heal: hull regen and reduced weapon power cost. Utility from weapon cost reduction enables higher uptime; survivability via regen."
+  },
+  "Adaptive Hull Plating": {
+    "damage": 0,
+    "utility": 0,
+    "survivability": 3.0,
+    "tags": ["max-hp", "stacking"],
+    "note": "Stacking Max HP on Hull Heal or Command use. Strong tank trait, common on cruiser/command builds using HE/ET rotations."
+  },
+  "Super Charged Weapons": {
+    "damage": 2.0,
+    "utility": 0,
+    "survivability": 0,
+    "tags": ["torpedo", "proc"],
+    "note": "On torpedo fire: +damage. Useful on torp-heavy or hybrid builds; energy-only builds benefit less. Score lower than headline r/stobuilds variant since the dataset entry reads as torp-only."
+  },
+  "Checkmate": {
+    "damage": 2.0,
+    "utility": 0.5,
+    "survivability": 0,
+    "tags": ["control", "exotic"],
+    "note": "On Control: +Exotic Damage, +Projectile Damage. Sci/control builds with heavy CC rotation benefit the most; mediocre on pure energy ships."
+  },
+  "Subsystem Redundancies": {
+    "damage": 0,
+    "utility": 0.5,
+    "survivability": 2.0,
+    "tags": ["shield-heal", "lance"],
+    "note": "On Lance or Beam Overload: shield heal and hardness. Strong survivability cue on Dreadnought builds running Lance cooldowns."
+  },
+  "Coordinated Assault": {
+    "damage": 2.5,
+    "utility": 0.5,
+    "survivability": 0,
+    "tags": ["pets", "firing-mode"],
+    "note": "Mirrors B:O or C:RF onto hangar pets. Strong damage amplifier on carriers; zero value on ships without hangar bays."
+  },
+  "Emergency Weapon Cycle": {
+    "damage": 3.5,
+    "utility": 1.5,
+    "survivability": 0,
+    "tags": ["haste", "weapon-cost", "ep2w"],
+    "note": "On EP2W: reduced weapon cost, haste. Widely regarded on r/stobuilds as a near-mandatory energy build trait; haste and sustained fire make this one of the strongest damage traits in the game."
+  },
+  "Structural Integrity Overcharge": {
+    "damage": 0,
+    "utility": 0,
+    "survivability": 1.5,
+    "tags": ["hp-regen", "engine-power"],
+    "note": "HP regen scaled by base engine power. Passive survivability; modest unless paired with high engine power builds."
+  },
+  "Stay on Target": {
+    "damage": 1.5,
+    "utility": 0,
+    "survivability": 0,
+    "tags": ["torpedo", "forward-arc"],
+    "note": "Periodic micro-torpedo while target is in forward arc. Passive minor damage; benefits front-loaded ships that keep targets in arc."
+  }
+}
