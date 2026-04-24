@@ -4,6 +4,7 @@ import type { ScoreBreakdown } from "../domain/score.ts";
 import { ROLES, type Role } from "../domain/scoringConfig.ts";
 import { suggestRole } from "../domain/roleDetect.ts";
 import type { RoleView } from "../domain/urlState.ts";
+import { computeRanking, scoreFor as rankingScoreFor } from "../domain/ranking.ts";
 
 type SortKey =
   | "score"
@@ -47,11 +48,7 @@ const ROLE_VIEWS: RoleView[] = ["overall", ...ROLES];
 // Pick the total that should be ranked by when a role tab is active.
 // Falls back to overall total when role data is missing (e.g. config
 // without the roles overlay).
-function scoreFor(bd: ScoreBreakdown | undefined, roleView: RoleView): number {
-  if (!bd) return 0;
-  if (roleView === "overall") return bd.total;
-  return bd.roles?.[roleView]?.total ?? bd.total;
-}
+const scoreFor = rankingScoreFor;
 
 export function ShipTable({
   ships,
@@ -74,6 +71,15 @@ export function ShipTable({
     });
     return arr;
   }, [ships, sortKey, sortDir, scores, roleView]);
+
+  // Rank + percent are computed from the filtered ship set under the current
+  // role view, independent of the currently-selected sort. This means rank 1
+  // is always the top-scoring ship in what the user is looking at, and
+  // percentages recompute automatically when filters or the role tab change.
+  const { rankMap, percentMap } = useMemo(
+    () => computeRanking(ships, scores, roleView),
+    [ships, scores, roleView],
+  );
 
   const clickSort = (k: SortKey) => {
     if (sortKey === k) setSortDir(sortDir === "asc" ? "desc" : "asc");
@@ -106,6 +112,12 @@ export function ShipTable({
             <th className="sel-col" aria-label="select" />
             <th className="owned-col" aria-label="Owned" title="Owned">
               <span aria-hidden="true">★</span>
+            </th>
+            <th className="rank-col" scope="col" title="Rank within current view">
+              #
+            </th>
+            <th className="percent-col" scope="col" title="Percent of top-ranked ship's score">
+              %
             </th>
             <Th
               label={SCORE_HEADER[roleView]}
@@ -170,6 +182,10 @@ export function ShipTable({
                   >
                     {isOwned ? "★" : "☆"}
                   </button>
+                </td>
+                <td className="rank-col">{rankMap.get(s.id) ?? ""}</td>
+                <td className="percent-col">
+                  {score ? `${(percentMap.get(s.id) ?? 0).toFixed(1)}%` : ""}
                 </td>
                 <td className="score">{score ? cellValue.toFixed(1) : "-"}</td>
                 <td className="name-col">

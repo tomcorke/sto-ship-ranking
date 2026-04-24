@@ -5,6 +5,7 @@ import { ShipTable } from "./components/ShipTable.tsx";
 import { Comparison } from "./components/Comparison.tsx";
 import { applyFilters, uniqueValues } from "./domain/filters.ts";
 import { loadOwned, saveOwned } from "./domain/ownership.ts";
+import { computeRanking } from "./domain/ranking.ts";
 import { deserialiseState, serialiseState, type RoleView } from "./domain/urlState.ts";
 
 const DISCLAIMER_KEY = "sto-ship-ranking.disclaimer.dismissed";
@@ -81,6 +82,14 @@ export default function App() {
   }, [ships]);
 
   const selectedShips = useMemo(() => ships.filter((s) => selected.has(s.id)), [ships, selected]);
+
+  // Rank and percent-of-top are computed against the current filtered set
+  // under the active role view, so Comparison can show the same numbers
+  // that ShipTable shows for any ship the user has selected.
+  const { rankMap, percentMap } = useMemo(
+    () => computeRanking(filtered, scores, roleView),
+    [filtered, scores, roleView],
+  );
 
   const toggleSelect = (id: number) => {
     setSelected((prev) => {
@@ -186,6 +195,8 @@ export default function App() {
               owned={owned}
               onToggleOwned={toggleOwned}
               roleView={roleView}
+              rankMap={rankMap}
+              percentMap={percentMap}
             />
             <ShipTable
               ships={filtered}
