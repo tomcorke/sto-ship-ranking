@@ -1,5 +1,7 @@
+import { useState } from "react";
 import type { Ship } from "../domain/ship.ts";
 import type { ScoreBreakdown } from "../domain/score.ts";
+import { summariseWinners } from "../domain/comparisonSummary.ts";
 
 interface Props {
   ships: Ship[];
@@ -20,9 +22,20 @@ interface Row {
   higherBetter: boolean;
   // Secondary rows shown in a muted style (e.g. score components).
   muted?: boolean;
+  // Indent breakdown rows (CSS padding) rather than using leading whitespace.
+  subrow?: boolean;
+  // Mark the total-score row so it can be bolded/emphasised.
+  total?: boolean;
+}
+
+interface Section {
+  title: string;
+  rows: Row[];
 }
 
 export function Comparison({ ships, scores, onRemove, onClear, owned, onToggleOwned }: Props) {
+  const [copied, setCopied] = useState(false);
+
   if (ships.length === 0) {
     return (
       <section className="comparison empty">
@@ -32,16 +45,31 @@ export function Comparison({ ships, scores, onRemove, onClear, owned, onToggleOw
     );
   }
 
-  const rows = buildRows(ships, scores);
-  const winners = rows.map((r) => pickWinners(r));
+  const sections = buildSections(ships, scores);
+  const summary = summariseWinners(ships, scores);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard permission may be denied; silently ignore.
+    }
+  };
 
   return (
     <section className="comparison">
       <div className="comparison-header">
         <h2>Comparison ({ships.length})</h2>
-        <button type="button" className="secondary" onClick={onClear}>
-          Clear all
-        </button>
+        <div className="comparison-actions">
+          <button type="button" className="secondary" onClick={handleCopy}>
+            {copied ? "Copied!" : "Copy link"}
+          </button>
+          <button type="button" className="secondary" onClick={onClear}>
+            Clear all
+          </button>
+        </div>
       </div>
       <div className="comparison-table-wrap">
         <table className="comparison-table">
@@ -79,31 +107,96 @@ export function Comparison({ ships, scores, onRemove, onClear, owned, onToggleOw
               })}
             </tr>
           </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr
-                key={row.key}
-                className={row.key === "score" ? "total" : row.muted ? "muted" : ""}
-              >
-                <th scope="row">{row.label}</th>
-                {row.values.map((v, j) => {
-                  const isWinner = row.numeric && winners[i].has(j);
-                  return (
-                    <td key={j} className={isWinner ? "winner" : ""}>
-                      {typeof v === "number" ? formatNumber(v, row.key) : v || "-"}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
+          {sections.map((section) => (
+            <SectionBody key={section.title} section={section} shipCount={ships.length} />
+          ))}
         </table>
       </div>
+      {summary && (
+        <p className="why-wins">
+          <strong>{summary.winner.name}</strong>
+          {summary.tied ? " (tied on total)" : ""}
+          {summary.leads.length > 0 ? (
+            <>
+              {" "}
+              leads on{" "}
+              {summary.leads.map((l, i) => (
+                <span key={l.key}>
+                  {i > 0 ? ", " : ""}
+                  <strong>{l.label}</strong> ({formatDelta(l.delta)})
+                </span>
+              ))}
+            </>
+          ) : (
+            " has the top total"
+          )}
+          {summary.trails.length > 0 && (
+            <>
+              ; trails on <strong>{summary.trails[0].label}</strong> (
+              {formatDelta(summary.trails[0].delta)})
+            </>
+          )}
+          .
+        </p>
+      )}
     </section>
   );
 }
 
-function buildRows(ships: Ship[], scores: Map<number, ScoreBreakdown>): Row[] {
+function SectionBody({ section, shipCount }: { section: Section; shipCount: number }) {
+  // Precompute per-row winners and maxAbs for bar widths.
+  return (
+    <tbody>
+      <tr className="section-head">
+        <th colSpan={shipCount + 1}>{section.title}</th>
+      </tr>
+      {section.rows.map((row) => (
+        <ComparisonRow key={row.key} row={row} />
+      ))}
+    </tbody>
+  );
+}
+
+function ComparisonRow({ row }: { row: Row }) {
+  const winners = pickWinners(row);
+  const numericValues = row.values.filter((v): v is number => typeof v === "number");
+  const maxAbs = numericValues.length > 0 ? Math.max(...numericValues.map(Math.abs)) : 0;
+
+  const trClass = [row.total ? "total" : "", row.muted ? "muted" : "", row.subrow ? "subrow" : ""]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <tr className={trClass}>
+      <th scope="row">{row.label}</th>
+      {row.values.map((v, j) => {
+        const isWinner = row.numeric && winners.has(j);
+        if (row.numeric && typeof v === "number") {
+          const width = maxAbs > 0 ? (Math.abs(v) / maxAbs) * 100 : 0;
+          const fillColor = v < 0 ? "var(--neg)" : "var(--pos)";
+          return (
+            <td key={j} className={isWinner ? "winner" : ""}>
+              <div className="cell-bar">
+                <span
+                  className="cell-bar-fill"
+                  style={{ width: `${width}%`, background: fillColor }}
+                />
+                <span className="cell-bar-val">{formatNumber(v, row.key)}</span>
+              </div>
+            </td>
+          );
+        }
+        return (
+          <td key={j} className={isWinner ? "winner" : ""}>
+            {typeof v === "number" ? formatNumber(v, row.key) : v || "-"}
+          </td>
+        );
+      })}
+    </tr>
+  );
+}
+
+function buildSections(ships: Ship[], scores: Map<number, ScoreBreakdown>): Section[] {
   const breakdowns = ships.map((s) => scores.get(s.id));
   const scoreValues = breakdowns.map((b) => b?.total ?? 0);
 
@@ -129,173 +222,228 @@ function buildRows(ships: Ship[], scores: Map<number, ScoreBreakdown>): Row[] {
     });
     return {
       key: `score-${k}`,
-      label: `  · ${compLabels.get(k) ?? k}`,
+      label: compLabels.get(k) ?? k,
       values,
       numeric: true,
       higherBetter: true,
       muted: true,
+      subrow: true,
     };
   });
 
-  const rows: Row[] = [
-    {
-      key: "score",
-      label: "Total score",
-      values: scoreValues,
-      numeric: true,
-      higherBetter: true,
-    },
-    ...componentRows,
-    textRow(
-      "faction",
-      "Faction",
-      ships.map((s) => s.faction),
-    ),
-    textRow(
-      "type",
-      "Type",
-      ships.map((s) => s.typeSimplified),
-    ),
-    textRow(
-      "source",
-      "Source",
-      ships.map((s) => s.source),
-    ),
-    textRow(
-      "career",
-      "Career",
-      ships.map((s) => s.career || ""),
-    ),
-    numRow(
-      "weaponsFore",
-      "Weapons fore",
-      ships.map((s) => s.weapons.fore),
-      true,
-    ),
-    numRow(
-      "weaponsAft",
-      "Weapons aft",
-      ships.map((s) => s.weapons.aft),
-      true,
-    ),
-    textRow(
-      "dhc",
-      "DHC",
-      ships.map((s) => (s.weapons.dhc ? "yes" : "")),
-    ),
-    textRow(
-      "exp",
-      "Experimental",
-      ships.map((s) => (s.weapons.experimental ? "yes" : "")),
-    ),
-    numRow(
-      "hull",
-      "Hull",
-      ships.map((s) => s.hull),
-      true,
-    ),
-    numRow(
-      "shieldMod",
-      "Shield mod",
-      ships.map((s) => s.shieldMod),
-      true,
-    ),
-    numRow(
-      "hullMod",
-      "Hull mod",
-      ships.map((s) => s.defenseHullMod),
-      true,
-    ),
-    numRow(
-      "turn",
-      "Turn rate",
-      ships.map((s) => s.mobility.turn),
-      true,
-    ),
-    numRow(
-      "inertia",
-      "Inertia",
-      ships.map((s) => s.mobility.inertia),
-      true,
-    ),
-    numRow(
-      "consolesT",
-      "Consoles T",
-      ships.map((s) => s.consoles.tac),
-      true,
-    ),
-    numRow(
-      "consolesE",
-      "Consoles E",
-      ships.map((s) => s.consoles.eng),
-      true,
-    ),
-    numRow(
-      "consolesS",
-      "Consoles S",
-      ships.map((s) => s.consoles.sci),
-      true,
-    ),
-    numRow(
-      "consolesU",
-      "Consoles U",
-      ships.map((s) => s.consoles.uni),
-      true,
-    ),
-    numRow(
-      "hangars",
-      "Hangars",
-      ships.map((s) => s.hangars),
-      true,
-    ),
-    numRow(
-      "abilityTac",
-      "Abilities Tac",
-      ships.map((s) => s.maxAbility.tac),
-      true,
-    ),
-    numRow(
-      "abilityEng",
-      "Abilities Eng",
-      ships.map((s) => s.maxAbility.eng),
-      true,
-    ),
-    numRow(
-      "abilitySci",
-      "Abilities Sci",
-      ships.map((s) => s.maxAbility.sci),
-      true,
-    ),
-    numRow(
-      "specSlots",
-      "Spec slots",
-      ships.map((s) => s.specSlots),
-      true,
-    ),
-    textRow(
-      "cloak",
-      "Cloak",
-      ships.map((s) => (s.miscFeatures.cloak ? "yes" : "")),
-    ),
-    numRow(
-      "flanking",
-      "Flanking %",
-      ships.map((s) => s.miscFeatures.flankingPct),
-      true,
-    ),
-    textRow(
-      "trait",
-      "Starship trait",
-      ships.map((s) => s.trait?.name ?? ""),
-    ),
-    textRow(
-      "uniConsole",
-      "Universal console",
-      ships.map((s) => s.universalConsole?.name ?? ""),
-    ),
-  ];
+  const scoreSection: Section = {
+    title: "Score",
+    rows: [
+      {
+        key: "score",
+        label: "Total score",
+        values: scoreValues,
+        numeric: true,
+        higherBetter: true,
+        total: true,
+      },
+      ...componentRows,
+    ],
+  };
 
-  return rows;
+  const offenseSection: Section = {
+    title: "Offense",
+    rows: [
+      numRow(
+        "weaponsFore",
+        "Weapons fore",
+        ships.map((s) => s.weapons.fore),
+        true,
+      ),
+      numRow(
+        "weaponsAft",
+        "Weapons aft",
+        ships.map((s) => s.weapons.aft),
+        true,
+      ),
+      textRow(
+        "dhc",
+        "DHC",
+        ships.map((s) => (s.weapons.dhc ? "yes" : "")),
+      ),
+      textRow(
+        "exp",
+        "Experimental",
+        ships.map((s) => (s.weapons.experimental ? "yes" : "")),
+      ),
+    ],
+  };
+
+  const defenseSection: Section = {
+    title: "Defense",
+    rows: [
+      numRow(
+        "hull",
+        "Hull",
+        ships.map((s) => s.hull),
+        true,
+      ),
+      numRow(
+        "shieldMod",
+        "Shield mod",
+        ships.map((s) => s.shieldMod),
+        true,
+      ),
+      numRow(
+        "hullMod",
+        "Hull mod",
+        ships.map((s) => s.defenseHullMod),
+        true,
+      ),
+    ],
+  };
+
+  const mobilitySection: Section = {
+    title: "Mobility",
+    rows: [
+      numRow(
+        "turn",
+        "Turn rate",
+        ships.map((s) => s.mobility.turn),
+        true,
+      ),
+      numRow(
+        "inertia",
+        "Inertia",
+        ships.map((s) => s.mobility.inertia),
+        true,
+      ),
+      numRow(
+        "impulseMod",
+        "Impulse mod",
+        ships.map((s) => s.mobility.impulseMod),
+        true,
+      ),
+    ],
+  };
+
+  const slotsSection: Section = {
+    title: "Slots",
+    rows: [
+      numRow(
+        "consolesT",
+        "Consoles T",
+        ships.map((s) => s.consoles.tac),
+        true,
+      ),
+      numRow(
+        "consolesE",
+        "Consoles E",
+        ships.map((s) => s.consoles.eng),
+        true,
+      ),
+      numRow(
+        "consolesS",
+        "Consoles S",
+        ships.map((s) => s.consoles.sci),
+        true,
+      ),
+      numRow(
+        "consolesU",
+        "Consoles U",
+        ships.map((s) => s.consoles.uni),
+        true,
+      ),
+      numRow(
+        "abilityTac",
+        "Abilities Tac",
+        ships.map((s) => s.maxAbility.tac),
+        true,
+      ),
+      numRow(
+        "abilityEng",
+        "Abilities Eng",
+        ships.map((s) => s.maxAbility.eng),
+        true,
+      ),
+      numRow(
+        "abilitySci",
+        "Abilities Sci",
+        ships.map((s) => s.maxAbility.sci),
+        true,
+      ),
+      numRow(
+        "specSlots",
+        "Spec slots",
+        ships.map((s) => s.specSlots),
+        true,
+      ),
+      numRow(
+        "hangars",
+        "Hangars",
+        ships.map((s) => s.hangars),
+        true,
+      ),
+    ],
+  };
+
+  const featuresSection: Section = {
+    title: "Features",
+    rows: [
+      textRow(
+        "cloak",
+        "Cloak",
+        ships.map((s) => (s.miscFeatures.cloak ? "yes" : "")),
+      ),
+      numRow(
+        "flanking",
+        "Flanking %",
+        ships.map((s) => s.miscFeatures.flankingPct),
+        true,
+      ),
+      textRow(
+        "trait",
+        "Starship trait",
+        ships.map((s) => s.trait?.name ?? ""),
+      ),
+      textRow(
+        "uniConsole",
+        "Universal console",
+        ships.map((s) => s.universalConsole?.name ?? ""),
+      ),
+    ],
+  };
+
+  const identitySection: Section = {
+    title: "Identity",
+    rows: [
+      textRow(
+        "faction",
+        "Faction",
+        ships.map((s) => s.faction),
+      ),
+      textRow(
+        "type",
+        "Type",
+        ships.map((s) => s.typeSimplified),
+      ),
+      textRow(
+        "source",
+        "Source",
+        ships.map((s) => s.source),
+      ),
+      textRow(
+        "career",
+        "Career",
+        ships.map((s) => s.career || ""),
+      ),
+    ],
+  };
+
+  return [
+    scoreSection,
+    offenseSection,
+    defenseSection,
+    mobilitySection,
+    slotsSection,
+    featuresSection,
+    identitySection,
+  ];
 }
 
 function numRow(key: string, label: string, values: number[], higherBetter: boolean): Row {
@@ -325,4 +473,9 @@ function formatNumber(v: number, key: string): string {
   if (key === "score") return v.toFixed(1);
   if (Number.isInteger(v)) return String(v);
   return v.toFixed(2);
+}
+
+function formatDelta(v: number): string {
+  const sign = v >= 0 ? "+" : "-";
+  return `${sign}${Math.abs(v).toFixed(1)}`;
 }
