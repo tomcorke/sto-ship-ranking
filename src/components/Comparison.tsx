@@ -13,6 +13,8 @@ interface Props {
   owned: Set<number>;
   onToggleOwned: (id: number) => void;
   roleView: RoleView;
+  rankMap: Map<number, number>;
+  percentMap: Map<number, number>;
 }
 
 const ROLE_SHORT: Record<Role, string> = {
@@ -169,6 +171,8 @@ export function Comparison({
   owned,
   onToggleOwned,
   roleView,
+  rankMap,
+  percentMap,
 }: Props) {
   const [copied, setCopied] = useState(false);
   const [collapsed, setCollapsed] = useState(readCollapsed);
@@ -252,6 +256,8 @@ export function Comparison({
               onToggleOwned={onToggleOwned}
               onRemove={onRemove}
               roleView={roleView}
+              rankMap={rankMap}
+              percentMap={percentMap}
             />
           ) : (
             <FullTable
@@ -376,6 +382,8 @@ function CompactTable({
   onToggleOwned,
   onRemove,
   roleView,
+  rankMap,
+  percentMap,
 }: {
   ships: Ship[];
   scores: Map<number, ScoreBreakdown>;
@@ -383,6 +391,8 @@ function CompactTable({
   onToggleOwned: (id: number) => void;
   onRemove: (id: number) => void;
   roleView: RoleView;
+  rankMap: Map<number, number>;
+  percentMap: Map<number, number>;
 }) {
   const breakdowns = ships.map((s) => scores.get(s.id));
   // Category lookup pulls from the active role overlay when roleView is
@@ -443,6 +453,12 @@ function CompactTable({
           <tr>
             <th className="compact-actions-col" aria-label="Actions"></th>
             <th className="compact-name-col">Ship</th>
+            <th className="rank-col" title="Rank within current view">
+              #
+            </th>
+            <th className="percent-col" title="Percent of top-ranked ship's score">
+              %
+            </th>
             <th>Score</th>
             <th>Wpn</th>
             <th>Con</th>
@@ -494,6 +510,10 @@ function CompactTable({
                       ↗
                     </a>
                   )}
+                </td>
+                <td className="rank-col">{rankMap.get(s.id) ?? ""}</td>
+                <td className="percent-col">
+                  {r.bd ? `${(percentMap.get(s.id) ?? 0).toFixed(1)}%` : ""}
                 </td>
                 <td className={isWinner("total", r.total) ? "winner total" : "total"}>
                   {r.total.toFixed(1)}

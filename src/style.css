@@ -723,6 +723,40 @@ input[type="search"] {
   font-weight: 600;
 }
 
+.ship-table td.rank-col,
+.ship-table th.rank-col {
+  width: 2.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  padding-right: 0.3rem;
+}
+
+.ship-table td.percent-col,
+.ship-table th.percent-col {
+  width: 4rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  font-size: 0.85em;
+}
+
+.comparison-compact td.rank-col,
+.comparison-compact th.rank-col {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  padding-right: 0.3rem;
+}
+
+.comparison-compact td.percent-col,
+.comparison-compact th.percent-col {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  font-size: 0.85em;
+}
+
 .ship-table .sel-col {
   width: 1.75rem;
   text-align: center;
