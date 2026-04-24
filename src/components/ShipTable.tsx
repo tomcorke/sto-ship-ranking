@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode, type RefObject } from "react";
 import type { Ship } from "../domain/ship.ts";
 import type { ScoreBreakdown } from "../domain/score.ts";
 import { ROLES, type Role } from "../domain/scoringConfig.ts";
@@ -24,6 +24,8 @@ interface Props {
   onToggleOwned: (id: number) => void;
   roleView: RoleView;
   onRoleViewChange: (v: RoleView) => void;
+  onOpenRubric?: () => void;
+  rubricTriggerRef?: RefObject<HTMLButtonElement>;
 }
 
 const ROLE_LABEL: Record<RoleView, string> = {
@@ -62,6 +64,8 @@ export function ShipTable({
   onToggleOwned,
   roleView,
   onRoleViewChange,
+  onOpenRubric,
+  rubricTriggerRef,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("score");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -113,6 +117,23 @@ export function ShipTable({
               cur={sortKey}
               dir={sortDir}
               on={clickSort}
+              extra={
+                onOpenRubric && (
+                  <button
+                    type="button"
+                    ref={rubricTriggerRef}
+                    className="rubric-trigger"
+                    aria-label="Open scoring rubric"
+                    title="Scoring rubric"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenRubric();
+                    }}
+                  >
+                    (?)
+                  </button>
+                )
+              }
             />
             <Th
               label="Name"
@@ -226,9 +247,10 @@ interface ThProps {
   dir: "asc" | "desc";
   on: (k: SortKey) => void;
   className?: string;
+  extra?: ReactNode;
 }
 
-function Th({ label, k, cur, dir, on, className }: ThProps) {
+function Th({ label, k, cur, dir, on, className, extra }: ThProps) {
   const active = cur === k;
   const ariaSort: "ascending" | "descending" | "none" = active
     ? dir === "asc"
@@ -242,6 +264,7 @@ function Th({ label, k, cur, dir, on, className }: ThProps) {
         {label}
         {active ? (dir === "asc" ? " ▲" : " ▼") : ""}
       </button>
+      {extra}
     </th>
   );
 }

@@ -391,6 +391,15 @@ export function scoreShip(
     detail: `w${pb.weapons}/s${pb.shields}/e${pb.engines}/a${pb.aux} (z${zPower.toFixed(2)})`,
   });
 
+  // Apply the always-on `overall` multiplier before computing totals or
+  // layering role overlays, so Weights-tab edits affect both overall and
+  // per-role scores consistently.
+  if (config.overall) {
+    for (const c of cats) {
+      c.points = c.points * multiplierFor(config.overall, c.key);
+    }
+  }
+
   const total = cats.reduce((s, c) => s + c.points, 0);
   const breakdown: ScoreBreakdown = {
     total: Math.round(total * 10) / 10,

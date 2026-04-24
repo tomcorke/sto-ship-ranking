@@ -1072,3 +1072,213 @@ button.link:hover {
   font-weight: 500;
   opacity: 0.9;
 }
+
+/* -------------------------------------------------------------------- */
+/* Rubric modal                                                         */
+/* -------------------------------------------------------------------- */
+
+.rubric-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.4rem;
+  padding: 0 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.rubric-trigger:hover,
+.rubric-trigger:focus-visible {
+  color: var(--accent);
+  border-color: var(--accent);
+  outline: none;
+}
+
+.rubric-modal {
+  width: min(900px, calc(100vw - 2rem));
+  max-height: calc(100vh - 4rem);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+.rubric-modal::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.rubric-modal-inner {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 4rem);
+}
+
+.rubric-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1.2rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.rubric-modal-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.rubric-close {
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.rubric-close:hover,
+.rubric-close:focus-visible {
+  color: var(--text);
+  background: var(--surface-2);
+  outline: none;
+}
+
+.rubric-tabs,
+.rubric-role-switch {
+  display: flex;
+  gap: 0;
+  padding: 0 1.2rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.rubric-tab {
+  padding: 0.6rem 1rem;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.rubric-tab:hover {
+  color: var(--text);
+}
+
+.rubric-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.rubric-body {
+  padding: 1rem 1.2rem 1.4rem;
+  overflow: auto;
+}
+
+.rubric-overview p,
+.rubric-lead {
+  margin: 0 0 0.8rem;
+  color: var(--text-muted);
+}
+
+.rubric-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.4rem;
+}
+
+.rubric-table th,
+.rubric-table td {
+  padding: 0.45rem 0.6rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.92rem;
+  vertical-align: top;
+}
+
+.rubric-table th {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+
+.rubric-table .rubric-desc {
+  color: var(--text-muted);
+}
+
+.rubric-changed {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.rubric-slider-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.6rem 1.2rem;
+}
+
+.rubric-slider {
+  display: grid;
+  grid-template-columns: 9rem 1fr 4.5rem;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.rubric-slider-label {
+  font-size: 0.92rem;
+  color: var(--text);
+}
+
+.rubric-slider input[type="range"] {
+  width: 100%;
+}
+
+.rubric-slider-number {
+  width: 100%;
+  padding: 0.2rem 0.35rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.rubric-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.rubric-btn {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.rubric-btn:hover,
+.rubric-btn:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  outline: none;
+}
+
+.rubric-btn.secondary {
+  background: transparent;
+}

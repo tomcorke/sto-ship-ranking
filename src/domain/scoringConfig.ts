@@ -45,6 +45,11 @@ export interface ScoringConfig {
   defense: { hull: number; shieldMod: number; defenseHullMod: number };
   mobility: { turn: number; impulseMod: number; inertiaPenalty: number };
   power: { perPoint: number };
+  // Always-applied per-category multipliers. Scales each category's
+  // contribution to the overall total (and feeds into role overlays too)
+  // so the Weights tab of the rubric modal can tune top-level balance
+  // without editing sub-weights. Defaults to 1.0 per key.
+  overall?: RoleWeights;
   roles?: Record<Role, RoleWeights>;
 }
 
@@ -124,6 +129,19 @@ export const DEFAULT_CONFIG: ScoringConfig = {
   defense: { hull: 0.6, shieldMod: 0.6, defenseHullMod: 0.4 },
   mobility: { turn: 0.5, impulseMod: 0.3, inertiaPenalty: 0.2 },
   power: { perPoint: 0.25 },
+  overall: {
+    weapons: 1,
+    consoles: 1,
+    boffAbilities: 1,
+    trait: 1,
+    hangars: 1,
+    misc: 1,
+    cruiserCommands: 1,
+    scienceFeatures: 1,
+    defense: 1,
+    mobility: 1,
+    power: 1,
+  },
   roles: DEFAULT_ROLE_WEIGHTS,
 };
 
