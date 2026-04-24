@@ -1,7 +1,7 @@
-import { useState, type CSSProperties } from "react";
+import { useState } from "react";
 import type { Ship } from "../domain/ship.ts";
 import type { ScoreBreakdown } from "../domain/score.ts";
-import { ROLES, type Role } from "../domain/scoringConfig.ts";
+import type { Role } from "../domain/scoringConfig.ts";
 import { summariseWinners } from "../domain/comparisonSummary.ts";
 import type { RoleView } from "../domain/urlState.ts";
 
@@ -31,14 +31,6 @@ const ROLE_LONG: Record<Role, string> = {
   support: "Support",
 };
 
-const SCORE_ROW_LABEL: Record<RoleView, string> = {
-  overall: "Total score",
-  dps: "DPS score",
-  tank: "Tank score",
-  sci: "Sci score",
-  support: "Support score",
-};
-
 interface ScoreView {
   total: number;
   categories: { key: string; label: string; points: number }[];
@@ -56,79 +48,7 @@ function viewFor(bd: ScoreBreakdown | undefined, roleView: RoleView): ScoreView 
   return { total: bd.total, categories: bd.categories };
 }
 
-interface RoleStripeCell {
-  role: Role;
-  value: number;
-  // Position in [0, 1] across the selected ships; used for shading. 0.5
-  // when there is no spread.
-  shade: number;
-  best: boolean;
-}
-
-function buildRoleStripes(
-  ships: Ship[],
-  scores: Map<number, ScoreBreakdown>,
-): Map<number, RoleStripeCell[]> {
-  // min/max across the SELECTED ships per role, so the stripe shows
-  // relative standing within the comparison (not the full fleet).
-  const minByRole: Record<Role, number> = {
-    dps: Infinity,
-    tank: Infinity,
-    sci: Infinity,
-    support: Infinity,
-  };
-  const maxByRole: Record<Role, number> = {
-    dps: -Infinity,
-    tank: -Infinity,
-    sci: -Infinity,
-    support: -Infinity,
-  };
-  for (const s of ships) {
-    const bd = scores.get(s.id);
-    if (!bd?.roles) continue;
-    for (const r of ROLES) {
-      const v = bd.roles[r].total;
-      if (v < minByRole[r]) minByRole[r] = v;
-      if (v > maxByRole[r]) maxByRole[r] = v;
-    }
-  }
-  const out = new Map<number, RoleStripeCell[]>();
-  for (const s of ships) {
-    const bd = scores.get(s.id);
-    const cells: RoleStripeCell[] = ROLES.map((r) => {
-      const v = bd?.roles?.[r].total ?? 0;
-      const lo = minByRole[r];
-      const hi = maxByRole[r];
-      const spread = hi - lo;
-      const shade = spread > 0 && Number.isFinite(lo) ? (v - lo) / spread : 0.5;
-      return { role: r, value: v, shade, best: bd?.bestRole === r };
-    });
-    out.set(s.id, cells);
-  }
-  return out;
-}
-
-function RoleStripe({ cells }: { cells: RoleStripeCell[] }) {
-  return (
-    <div className="role-stripe" role="group" aria-label="Role scores">
-      {cells.map((c) => (
-        <span
-          key={c.role}
-          className={`role-stripe-cell ${c.best ? "best" : ""}`}
-          data-role={c.role}
-          title={`${ROLE_LONG[c.role]}: ${c.value.toFixed(1)}${c.best ? " (best)" : ""}`}
-          style={{ "--role-shade": c.shade } as CSSProperties}
-        >
-          <span className="role-stripe-label">{ROLE_SHORT[c.role]}</span>
-          <span className="role-stripe-val">{c.value.toFixed(0)}</span>
-        </span>
-      ))}
-    </div>
-  );
-}
-
 const COLLAPSED_KEY = "sto-ship-ranking.comparison.collapsed";
-const COMPACT_THRESHOLD = 5;
 
 const readCollapsed = (): boolean => {
   try {
@@ -146,22 +66,6 @@ const writeCollapsed = (v: boolean) => {
     // ignore quota / privacy-mode errors
   }
 };
-
-interface Row {
-  key: string;
-  label: string;
-  values: (number | string)[];
-  numeric: boolean;
-  higherBetter: boolean;
-  muted?: boolean;
-  subrow?: boolean;
-  total?: boolean;
-}
-
-interface Section {
-  title: string;
-  rows: Row[];
-}
 
 export function Comparison({
   ships,
@@ -199,8 +103,7 @@ export function Comparison({
     }
   };
 
-  const compact = ships.length >= COMPACT_THRESHOLD;
-  const summary = summariseWinners(ships, scores, roleView);
+  const summary = ships.length >= 2 ? summariseWinners(ships, scores, roleView) : null;
 
   return (
     <section className={`comparison ${collapsed ? "is-collapsed" : "is-expanded"}`}>
@@ -248,27 +151,16 @@ export function Comparison({
 
       {!collapsed && (
         <>
-          {compact ? (
-            <CompactTable
-              ships={ships}
-              scores={scores}
-              owned={owned}
-              onToggleOwned={onToggleOwned}
-              onRemove={onRemove}
-              roleView={roleView}
-              rankMap={rankMap}
-              percentMap={percentMap}
-            />
-          ) : (
-            <FullTable
-              ships={ships}
-              scores={scores}
-              owned={owned}
-              onToggleOwned={onToggleOwned}
-              onRemove={onRemove}
-              roleView={roleView}
-            />
-          )}
+          <CompactTable
+            ships={ships}
+            scores={scores}
+            owned={owned}
+            onToggleOwned={onToggleOwned}
+            onRemove={onRemove}
+            roleView={roleView}
+            rankMap={rankMap}
+            percentMap={percentMap}
+          />
           {summary && (
             <p className="why-wins">
               <strong>{summary.winner.name}</strong>
@@ -299,79 +191,6 @@ export function Comparison({
         </>
       )}
     </section>
-  );
-}
-
-function FullTable({
-  ships,
-  scores,
-  owned,
-  onToggleOwned,
-  onRemove,
-  roleView,
-}: {
-  ships: Ship[];
-  scores: Map<number, ScoreBreakdown>;
-  owned: Set<number>;
-  onToggleOwned: (id: number) => void;
-  onRemove: (id: number) => void;
-  roleView: RoleView;
-}) {
-  const sections = buildSections(ships, scores, roleView);
-  const stripes = buildRoleStripes(ships, scores);
-  return (
-    <div className="comparison-table-wrap">
-      <table className="comparison-table">
-        <thead>
-          <tr>
-            <th className="label-col">Category</th>
-            {ships.map((s) => {
-              const isOwned = owned.has(s.id);
-              const cells = stripes.get(s.id);
-              return (
-                <th key={s.id}>
-                  <div className="comp-ship-head">
-                    <span className="ship-name">{s.name}</span>
-                    {s.wikiUrl && (
-                      <a
-                        href={s.wikiUrl}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="ship-wiki-link"
-                        aria-label={`${s.name} on stowiki`}
-                      >
-                        ↗
-                      </a>
-                    )}
-                    <button
-                      type="button"
-                      className="owned-toggle"
-                      aria-pressed={isOwned}
-                      aria-label={isOwned ? `Unmark ${s.name} as owned` : `Mark ${s.name} as owned`}
-                      onClick={() => onToggleOwned(s.id)}
-                    >
-                      {isOwned ? "★" : "☆"}
-                    </button>
-                    <button
-                      type="button"
-                      className="link"
-                      onClick={() => onRemove(s.id)}
-                      aria-label={`Remove ${s.name}`}
-                    >
-                      ×
-                    </button>
-                  </div>
-                  {cells && <RoleStripe cells={cells} />}
-                </th>
-              );
-            })}
-          </tr>
-        </thead>
-        {sections.map((section) => (
-          <SectionBody key={section.title} section={section} shipCount={ships.length} />
-        ))}
-      </table>
-    </div>
   );
 }
 
@@ -434,11 +253,13 @@ function CompactTable({
     "mobility",
   ] as const;
 
+  // Winner highlighting only makes sense when comparing 2+ ships.
   const colMax = new Map<string, number>();
   for (const col of numericCols) {
     colMax.set(col, Math.max(...rowData.map((r) => r[col])));
   }
   const isWinner = (col: (typeof numericCols)[number], value: number): boolean => {
+    if (ships.length < 2) return false;
     const max = colMax.get(col) ?? 0;
     if (max === 0) return false;
     const allEqual = rowData.every((r) => r[col] === value);
@@ -558,339 +379,6 @@ function CompactTable({
       </table>
     </div>
   );
-}
-
-function SectionBody({ section, shipCount }: { section: Section; shipCount: number }) {
-  return (
-    <tbody>
-      <tr className="section-head">
-        <th colSpan={shipCount + 1}>{section.title}</th>
-      </tr>
-      {section.rows.map((row) => (
-        <ComparisonRow key={row.key} row={row} />
-      ))}
-    </tbody>
-  );
-}
-
-function ComparisonRow({ row }: { row: Row }) {
-  const winners = pickWinners(row);
-  const numericValues = row.values.filter((v): v is number => typeof v === "number");
-  const maxAbs = numericValues.length > 0 ? Math.max(...numericValues.map(Math.abs)) : 0;
-
-  const trClass = [row.total ? "total" : "", row.muted ? "muted" : "", row.subrow ? "subrow" : ""]
-    .filter(Boolean)
-    .join(" ");
-
-  return (
-    <tr className={trClass}>
-      <th scope="row">{row.label}</th>
-      {row.values.map((v, j) => {
-        const isWinner = row.numeric && winners.has(j);
-        if (row.numeric && typeof v === "number") {
-          const width = maxAbs > 0 ? (Math.abs(v) / maxAbs) * 100 : 0;
-          const fillColor = v < 0 ? "var(--neg)" : "var(--pos)";
-          return (
-            <td key={j} className={isWinner ? "winner" : ""}>
-              <div className="cell-bar">
-                <span
-                  className="cell-bar-fill"
-                  style={{ width: `${width}%`, background: fillColor }}
-                />
-                <span className="cell-bar-val">{formatNumber(v, row.key)}</span>
-              </div>
-            </td>
-          );
-        }
-        return (
-          <td key={j} className={isWinner ? "winner" : ""}>
-            {typeof v === "number" ? formatNumber(v, row.key) : v || "-"}
-          </td>
-        );
-      })}
-    </tr>
-  );
-}
-
-function buildSections(
-  ships: Ship[],
-  scores: Map<number, ScoreBreakdown>,
-  roleView: RoleView,
-): Section[] {
-  const breakdowns = ships.map((s) => scores.get(s.id));
-  const views = breakdowns.map((b) => viewFor(b, roleView));
-  const scoreValues = views.map((v) => v.total);
-
-  const compKeys: string[] = [];
-  const compLabels = new Map<string, string>();
-  for (const view of views) {
-    for (const c of view.categories) {
-      if (!compLabels.has(c.key)) {
-        compLabels.set(c.key, c.label);
-        compKeys.push(c.key);
-      }
-    }
-  }
-
-  const componentRows: Row[] = compKeys.map((k) => {
-    const values = views.map((view) => {
-      const c = view.categories.find((x) => x.key === k);
-      if (!c) return 0;
-      return c.points;
-    });
-    return {
-      key: `score-${k}`,
-      label: compLabels.get(k) ?? k,
-      values,
-      numeric: true,
-      higherBetter: true,
-      muted: true,
-      subrow: true,
-    };
-  });
-
-  const scoreSection: Section = {
-    title: "Score",
-    rows: [
-      {
-        key: "score",
-        label: SCORE_ROW_LABEL[roleView],
-        values: scoreValues,
-        numeric: true,
-        higherBetter: true,
-        total: true,
-      },
-      ...componentRows,
-    ],
-  };
-
-  const offenseSection: Section = {
-    title: "Offense",
-    rows: [
-      numRow(
-        "weaponsFore",
-        "Weapons fore",
-        ships.map((s) => s.weapons.fore),
-        true,
-      ),
-      numRow(
-        "weaponsAft",
-        "Weapons aft",
-        ships.map((s) => s.weapons.aft),
-        true,
-      ),
-      textRow(
-        "dhc",
-        "DHC",
-        ships.map((s) => (s.weapons.dhc ? "yes" : "")),
-      ),
-      textRow(
-        "exp",
-        "Experimental",
-        ships.map((s) => (s.weapons.experimental ? "yes" : "")),
-      ),
-    ],
-  };
-
-  const defenseSection: Section = {
-    title: "Defense",
-    rows: [
-      numRow(
-        "hull",
-        "Hull",
-        ships.map((s) => s.hull),
-        true,
-      ),
-      numRow(
-        "shieldMod",
-        "Shield mod",
-        ships.map((s) => s.shieldMod),
-        true,
-      ),
-      numRow(
-        "hullMod",
-        "Hull mod",
-        ships.map((s) => s.defenseHullMod),
-        true,
-      ),
-    ],
-  };
-
-  const mobilitySection: Section = {
-    title: "Mobility",
-    rows: [
-      numRow(
-        "turn",
-        "Turn rate",
-        ships.map((s) => s.mobility.turn),
-        true,
-      ),
-      numRow(
-        "inertia",
-        "Inertia",
-        ships.map((s) => s.mobility.inertia),
-        true,
-      ),
-      numRow(
-        "impulseMod",
-        "Impulse mod",
-        ships.map((s) => s.mobility.impulseMod),
-        true,
-      ),
-    ],
-  };
-
-  const slotsSection: Section = {
-    title: "Slots",
-    rows: [
-      numRow(
-        "consolesT",
-        "Consoles T",
-        ships.map((s) => s.consoles.tac),
-        true,
-      ),
-      numRow(
-        "consolesE",
-        "Consoles E",
-        ships.map((s) => s.consoles.eng),
-        true,
-      ),
-      numRow(
-        "consolesS",
-        "Consoles S",
-        ships.map((s) => s.consoles.sci),
-        true,
-      ),
-      numRow(
-        "consolesU",
-        "Consoles U",
-        ships.map((s) => s.consoles.uni),
-        true,
-      ),
-      numRow(
-        "abilityTac",
-        "Abilities Tac",
-        ships.map((s) => s.maxAbility.tac),
-        true,
-      ),
-      numRow(
-        "abilityEng",
-        "Abilities Eng",
-        ships.map((s) => s.maxAbility.eng),
-        true,
-      ),
-      numRow(
-        "abilitySci",
-        "Abilities Sci",
-        ships.map((s) => s.maxAbility.sci),
-        true,
-      ),
-      numRow(
-        "specSlots",
-        "Spec slots",
-        ships.map((s) => s.specSlots),
-        true,
-      ),
-      numRow(
-        "hangars",
-        "Hangars",
-        ships.map((s) => s.hangars),
-        true,
-      ),
-    ],
-  };
-
-  const featuresSection: Section = {
-    title: "Features",
-    rows: [
-      textRow(
-        "cloak",
-        "Cloak",
-        ships.map((s) => (s.miscFeatures.cloak ? "yes" : "")),
-      ),
-      numRow(
-        "flanking",
-        "Flanking %",
-        ships.map((s) => s.miscFeatures.flankingPct),
-        true,
-      ),
-      textRow(
-        "trait",
-        "Starship trait",
-        ships.map((s) => s.trait?.name ?? ""),
-      ),
-      textRow(
-        "uniConsole",
-        "Universal console",
-        ships.map((s) => s.universalConsole?.name ?? ""),
-      ),
-    ],
-  };
-
-  const identitySection: Section = {
-    title: "Identity",
-    rows: [
-      textRow(
-        "faction",
-        "Faction",
-        ships.map((s) => s.faction),
-      ),
-      textRow(
-        "type",
-        "Type",
-        ships.map((s) => s.typeSimplified),
-      ),
-      textRow(
-        "source",
-        "Source",
-        ships.map((s) => s.source),
-      ),
-      textRow(
-        "career",
-        "Career",
-        ships.map((s) => s.career || ""),
-      ),
-    ],
-  };
-
-  return [
-    scoreSection,
-    offenseSection,
-    defenseSection,
-    mobilitySection,
-    slotsSection,
-    featuresSection,
-    identitySection,
-  ];
-}
-
-function numRow(key: string, label: string, values: number[], higherBetter: boolean): Row {
-  return { key, label, values, numeric: true, higherBetter };
-}
-
-function textRow(key: string, label: string, values: string[]): Row {
-  return { key, label, values, numeric: false, higherBetter: true };
-}
-
-function pickWinners(row: Row): Set<number> {
-  if (!row.numeric) return new Set();
-  const nums = row.values.map((v) => (typeof v === "number" ? v : 0));
-  const allZero = nums.every((n) => n === 0);
-  if (allZero) return new Set();
-  const extreme = row.higherBetter ? Math.max(...nums) : Math.min(...nums);
-  const out = new Set<number>();
-  nums.forEach((n, i) => {
-    if (n === extreme) out.add(i);
-  });
-  if (out.size === nums.length) return new Set();
-  return out;
-}
-
-function formatNumber(v: number, key: string): string {
-  if (key === "hull") return v >= 1000 ? (v / 1000).toFixed(1) + "k" : String(v);
-  if (key === "score") return v.toFixed(1);
-  if (Number.isInteger(v)) return String(v);
-  return v.toFixed(2);
 }
 
 function formatDelta(v: number): string {
