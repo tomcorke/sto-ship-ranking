@@ -1,13 +1,39 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ships, scores } from "./data/shipsData.ts";
-import { FiltersPanel } from "./components/Filters.tsx";
+import { ActiveFilters, FiltersPanel } from "./components/Filters.tsx";
 import { ShipTable } from "./components/ShipTable.tsx";
 import { Comparison } from "./components/Comparison.tsx";
 import { applyFilters, emptyFilters, uniqueValues } from "./domain/filters.ts";
+import { deserialiseState, serialiseState } from "./domain/urlState.ts";
+
+const DISCLAIMER_KEY = "sto-ship-ranking.disclaimer.dismissed";
 
 export default function App() {
   const [filters, setFilters] = useState(emptyFilters);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [disclaimerDismissed, setDisclaimerDismissed] = useState(true);
+  const hydrated = useRef(false);
+
+  // Hydrate from hash + localStorage once on mount.
+  useEffect(() => {
+    const parsed = deserialiseState(window.location.hash);
+    setFilters(parsed.filters);
+    setSelected(parsed.selected);
+    try {
+      setDisclaimerDismissed(localStorage.getItem(DISCLAIMER_KEY) === "1");
+    } catch {
+      setDisclaimerDismissed(false);
+    }
+    hydrated.current = true;
+  }, []);
+
+  // Write back to the hash on state changes (replaceState, no history entries).
+  useEffect(() => {
+    if (!hydrated.current) return;
+    const hash = serialiseState({ filters, selected });
+    const url = `${window.location.pathname}${window.location.search}${hash ? `#${hash}` : ""}`;
+    window.history.replaceState(null, "", url);
+  }, [filters, selected]);
 
   const filtered = useMemo(() => applyFilters(ships, filters), [filters]);
 
@@ -27,6 +53,15 @@ export default function App() {
     });
   };
 
+  const dismissDisclaimer = () => {
+    setDisclaimerDismissed(true);
+    try {
+      localStorage.setItem(DISCLAIMER_KEY, "1");
+    } catch {
+      // ignore quota / privacy-mode errors
+    }
+  };
+
   return (
     <main className="app">
       <header>
@@ -36,6 +71,23 @@ export default function App() {
           Fleffle's list.
         </p>
       </header>
+
+      {!disclaimerDismissed && (
+        <div className="disclaimer" role="note">
+          <span>
+            Scores are a rough heuristic - use as a starting point, not a verdict. Click the Score
+            column header for the rubric breakdown.
+          </span>
+          <button
+            type="button"
+            className="disclaimer-close"
+            onClick={dismissDisclaimer}
+            aria-label="Dismiss disclaimer"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       <div className="layout">
         <FiltersPanel
@@ -50,6 +102,7 @@ export default function App() {
         />
 
         <div className="main-col">
+          <ActiveFilters filters={filters} onChange={setFilters} />
           <Comparison
             ships={selectedShips}
             scores={scores}
