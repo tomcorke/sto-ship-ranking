@@ -9,7 +9,12 @@
     "preview": "vp preview",
     "data:fetch": "node --experimental-strip-types scripts/fetch-data.ts"
   },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
   "devDependencies": {
+    "@types/node": "^25.6.0",
     "@types/react": "^18.3.28",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^6.0.1",
@@ -17,9 +22,5 @@
     "vite": "catalog:",
     "vite-plus": "catalog:"
   },
-  "packageManager": "pnpm@10.33.2",
-  "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
-  }
+  "packageManager": "pnpm@10.33.2"
 }

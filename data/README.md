@@ -31,34 +31,34 @@ periodically and commit the diff.
 The CSV has two header rows merged into one (row 1 is group label, row 2 is sub-label).
 Key columns:
 
-| Column(s) | Meaning |
-|---|---|
-| `ID` | Stable numeric ID assigned by Fleffle |
-| `Name` | Ship name |
-| `Acquisition Release (PC)`, `Year`, `Month` | Release date |
-| `Orig Source`, `Source` | Where the ship can be acquired. One of: `C Store`, `C Store (Bundle)`, `C Store (Leg)`, `C Store (Mudd)`, `Lockbox`, `Lobi`, `Promo`, `Phoenix`, `Fleet`, `Veteran`, `Giveaway`, `Event only` |
-| `Bundle(s)`, `Starter Bundle` | Bundle membership |
-| `Faction` | `Federation`, `Klingon`, `Romulan`, `Dominion`, `X-faction` |
-| `Origin` | Fictional race/culture (Borg, Vulcan, Breen, ...) |
-| `Family` | Ship family grouping (for variants) |
-| `Ship Role Mastery Package`, `Ship Type (Simplified)`, `Ship Type (Detailed)` | Classification |
-| `Highest Seats Tac/Eng/Sci/Uni/Int/Cmd/Pil/Tmp/MW`, `Full` | Highest BOff seat rank per career/spec (and primary spec) |
-| `Max Ability Counts Tac/Eng/Sci/Int/Cmd/Pil/Tmp/MW` | Total BOff ability slots available per career/spec |
-| `Spec Details Specs/Spec Seats/Spec Slots` | Number of distinct specs, spec seats, spec-ability slots |
-| `Defense Hull Mod`, `Hull`, `Shield Mod` | Defensive stats |
-| `Mobility Turn/Imp/Inrt` | Turn rate, impulse mod, inertia |
-| `Power Bonus W/S/E/A` | Weapons/Shields/Engines/Auxiliary power bonuses |
-| `Boff 1..6` (3 cols each: rank, type, spec seat) | BOff station layout, 6 stations of {rank, type, spec} |
-| `Weapons F + A/Fore/Aft/DHC/Exp` | Weapon slot counts, DHC support, experimental-weapon slot |
-| `Misc Equips Hangars/Dev/Fleet` | Hangar bay count, device slots, fleet/module slots |
-| `Consoles T/E/S/U` | Tac/Eng/Sci/Universal console counts |
-| `Cruiser Commands Weapon/Shield/Engine/Threat` | Cruiser command auras |
-| `Science Features Sec Def/Sub Targeting/Sensor Analysis/Tac Mode` | Science-ship features |
-| `Misc Features Singularity/Cloak/Flanking/Wingmen` | Misc features (inc. flanking %) |
-| `Trait Name`, `Trait Summary`, `Trait URL` | Starship trait (name, descriptive summary, link to stowiki) |
-| `Universal Console`, `Console Name`, `Console URL` | Unique universal console |
-| `Admiralty Card Rarity/Role/Eng/Tac/Sci/Bonus` | Admiralty card stats |
-| `Wiki URL` | Link to stowiki page for the ship |
+| Column(s)                                                                     | Meaning                                                                                                                                                                                       |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ID`                                                                          | Stable numeric ID assigned by Fleffle                                                                                                                                                         |
+| `Name`                                                                        | Ship name                                                                                                                                                                                     |
+| `Acquisition Release (PC)`, `Year`, `Month`                                   | Release date                                                                                                                                                                                  |
+| `Orig Source`, `Source`                                                       | Where the ship can be acquired. One of: `C Store`, `C Store (Bundle)`, `C Store (Leg)`, `C Store (Mudd)`, `Lockbox`, `Lobi`, `Promo`, `Phoenix`, `Fleet`, `Veteran`, `Giveaway`, `Event only` |
+| `Bundle(s)`, `Starter Bundle`                                                 | Bundle membership                                                                                                                                                                             |
+| `Faction`                                                                     | `Federation`, `Klingon`, `Romulan`, `Dominion`, `X-faction`                                                                                                                                   |
+| `Origin`                                                                      | Fictional race/culture (Borg, Vulcan, Breen, ...)                                                                                                                                             |
+| `Family`                                                                      | Ship family grouping (for variants)                                                                                                                                                           |
+| `Ship Role Mastery Package`, `Ship Type (Simplified)`, `Ship Type (Detailed)` | Classification                                                                                                                                                                                |
+| `Highest Seats Tac/Eng/Sci/Uni/Int/Cmd/Pil/Tmp/MW`, `Full`                    | Highest BOff seat rank per career/spec (and primary spec)                                                                                                                                     |
+| `Max Ability Counts Tac/Eng/Sci/Int/Cmd/Pil/Tmp/MW`                           | Total BOff ability slots available per career/spec                                                                                                                                            |
+| `Spec Details Specs/Spec Seats/Spec Slots`                                    | Number of distinct specs, spec seats, spec-ability slots                                                                                                                                      |
+| `Defense Hull Mod`, `Hull`, `Shield Mod`                                      | Defensive stats                                                                                                                                                                               |
+| `Mobility Turn/Imp/Inrt`                                                      | Turn rate, impulse mod, inertia                                                                                                                                                               |
+| `Power Bonus W/S/E/A`                                                         | Weapons/Shields/Engines/Auxiliary power bonuses                                                                                                                                               |
+| `Boff 1..6` (3 cols each: rank, type, spec seat)                              | BOff station layout, 6 stations of {rank, type, spec}                                                                                                                                         |
+| `Weapons F + A/Fore/Aft/DHC/Exp`                                              | Weapon slot counts, DHC support, experimental-weapon slot                                                                                                                                     |
+| `Misc Equips Hangars/Dev/Fleet`                                               | Hangar bay count, device slots, fleet/module slots                                                                                                                                            |
+| `Consoles T/E/S/U`                                                            | Tac/Eng/Sci/Universal console counts                                                                                                                                                          |
+| `Cruiser Commands Weapon/Shield/Engine/Threat`                                | Cruiser command auras                                                                                                                                                                         |
+| `Science Features Sec Def/Sub Targeting/Sensor Analysis/Tac Mode`             | Science-ship features                                                                                                                                                                         |
+| `Misc Features Singularity/Cloak/Flanking/Wingmen`                            | Misc features (inc. flanking %)                                                                                                                                                               |
+| `Trait Name`, `Trait Summary`, `Trait URL`                                    | Starship trait (name, descriptive summary, link to stowiki)                                                                                                                                   |
+| `Universal Console`, `Console Name`, `Console URL`                            | Unique universal console                                                                                                                                                                      |
+| `Admiralty Card Rarity/Role/Eng/Tac/Sci/Bonus`                                | Admiralty card stats                                                                                                                                                                          |
+| `Wiki URL`                                                                    | Link to stowiki page for the ship                                                                                                                                                             |
 
 ### Notes and caveats
 
