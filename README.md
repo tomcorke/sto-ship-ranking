@@ -75,3 +75,12 @@ Full data source notes, schema, and caveats are in [`data/README.md`](./data/REA
 
 - `.npmrc` in this repo pins installs to the public npm registry regardless of
   any global registry overrides, so installs work out-of-the-box on any machine.
+
+## Deployment
+
+Pushes to `main` auto-deploy to GitHub Pages via the workflow in
+`.github/workflows/deploy.yml`. The workflow runs `vp install` and `vp build`,
+then publishes `dist/` through the `github-pages` environment using GitHub's
+official Pages actions. The deployed URL is reported by the `deploy` job and
+surfaced on the environment page; the production build uses a Vite base path
+of `/sto-ship-ranking/` so assets resolve correctly under the Pages subpath.
