@@ -78,131 +78,63 @@ function asSpec(v: string | undefined): Spec {
   return "";
 }
 
-function parseBoff(cells: string[], offset: number): BoffStation | null {
-  const rank = asRank(cells[offset]);
-  const career = asCareer(cells[offset + 1]);
-  const spec = asSpec(cells[offset + 2]);
-  if (rank === 0 && career === "" && spec === "") return null;
-  return { rank, career, spec };
+function parseBoffFromFields(
+  rank: string | undefined,
+  career: string | undefined,
+  spec: string | undefined,
+): BoffStation | null {
+  const r = asRank(rank);
+  const c = asCareer(career);
+  const s = asSpec(spec);
+  if (r === 0 && c === "" && s === "") return null;
+  return { rank: r, career: c, spec: s };
 }
 
 /**
- * Fleffle's sheet uses visually-merged header cells: the group label is on
- * the first cell of a span, and the remaining cells in the span hold only the
- * sub-label (or are blank for Boff tuples). To look columns up by name we
- * need to reconstruct unique synthetic keys from that layout.
+ * ImportShips tab layout (118 columns).
  *
- * Rule: walk the raw header row, carrying the current group label. When we
- * encounter a header cell whose text is a known group prefix followed by a
- * sub-label (e.g. "Highest Seats Tac"), split off the group label and start a
- * new span. Subsequent short labels and blanks inherit the current group.
- * Stand-alone unique headers (e.g. "Hull", "Faction") reset the group to none.
+ * The tab has two header rows:
+ *   row 0: flat machine-readable column names (e.g. `release_date`, `max_t`,
+ *          `total_tac`, `cc_w`, `trait_summary`). A handful of cells are
+ *          blank - these are derived columns (ID, Name, `devices`/`Dev`,
+ *          `X-Upgrades`, the `SD_SHOW`/`Highlight` flags, plus three
+ *          consoles-plus-upgrades dupes) that we resolve by fixed position.
+ *   row 1: numeric lookup pointers used internally by the Ships tab. Ignored.
+ * Data rows start at row 2.
+ *
+ * Row filter:
+ *   - numeric `ID` in column 1
+ *   - `released` (col 98) == "TRUE"
+ *   - `SD_SHOW` (col 99) == "TRUE"  (collapses each Science Destroyer's
+ *     three variants - base / Tactical Mode / Science Mode - into the single
+ *     base row the Ships tab presents)
  */
-// Each entry is [group-label-prefix, span-length-including-first-cell].
-// Span length is needed because the sub-cells of a group may be short unique
-// tokens that could otherwise be confused with standalone columns appearing
-// immediately after the group.
-const GROUP_SPANS: readonly { prefix: string; length: number }[] = [
-  { prefix: "Highest Seats", length: 10 }, // Tac Eng Sci Uni Int Cmd Pil Tmp MW Full
-  { prefix: "Max Ability Counts", length: 8 }, // Tac Eng Sci Int Cmd Pil Tmp MW
-  { prefix: "Spec Details", length: 3 }, // Specs, Spec Seats, Spec Slots
-  { prefix: "Mobility", length: 3 }, // Turn Imp Inrt
-  { prefix: "Power Bonus", length: 4 }, // W S E A
-  { prefix: "Boff 1", length: 3 },
-  { prefix: "Boff 2", length: 3 },
-  { prefix: "Boff 3", length: 3 },
-  { prefix: "Boff 4", length: 3 },
-  { prefix: "Boff 5", length: 3 },
-  { prefix: "Boff 6", length: 3 },
-  { prefix: "Weapons F + A", length: 5 }, // (total), Fore Aft DHC Exp
-  { prefix: "Misc Equips", length: 3 }, // Hangars Dev Fleet
-  { prefix: "Consoles", length: 4 }, // T E S U
-  { prefix: "Cruiser Commands", length: 4 }, // Weapon Shield Engine Threat
-  { prefix: "Science Features", length: 4 }, // Sec Def, Sub Targeting, Sensor Analysis, Tac Mode
-  { prefix: "Misc Featrues", length: 4 }, // Singularity Cloak Flanking Wingmen (preserve upstream typo)
-  { prefix: "Admiralty Card", length: 6 }, // Rarity Role Eng Tac Sci Bonus
-];
 
-function splitGroupHeader(raw: string): { group: string; groupLength: number; sub: string } | null {
-  const trimmed = raw.trim();
-  for (const g of GROUP_SPANS) {
-    if (trimmed === g.prefix) return { group: g.prefix, groupLength: g.length, sub: "" };
-    if (trimmed.startsWith(g.prefix + " ")) {
-      return {
-        group: g.prefix,
-        groupLength: g.length,
-        sub: trimmed.slice(g.prefix.length + 1).trim(),
-      };
-    }
-  }
-  return null;
-}
-
-function normaliseRawHeader(raw: string): string {
-  const trimmed = raw.trim();
-  // The upstream sheet prefixes the first "Name" column with a dynamic
-  // "Current filter: N of M results Name" banner. Normalise to just "Name".
-  if (/Current filter:.*\bName$/.test(trimmed)) return "Name";
-  return trimmed;
-}
-
-function buildSyntheticHeader(rawHeader: string[]): string[] {
-  const synthetic: string[] = [];
-  let i = 0;
-  while (i < rawHeader.length) {
-    const raw = rawHeader[i] ?? "";
-    const trimmed = normaliseRawHeader(raw);
-    const split = splitGroupHeader(trimmed);
-
-    if (split) {
-      const group = split.group;
-      const span = split.groupLength;
-      const end = Math.min(rawHeader.length, i + span);
-
-      if (group.startsWith("Boff ")) {
-        // Boff groups have blank sub-headers; synthesize {rank, career, spec}.
-        const subs = ["rank", "career", "spec"];
-        for (let j = 0; j < end - i; j++) {
-          synthetic.push(`${group} ${subs[j] ?? `col${j}`}`);
-        }
-      } else {
-        // First cell: "Group Prefix <sub>" or just "Group Prefix".
-        if (split.sub) synthetic.push(`${group} ${split.sub}`);
-        else synthetic.push(group);
-        // Subsequent cells in the span: "Group Prefix <cell>".
-        for (let k = i + 1; k < end; k++) {
-          const cell = normaliseRawHeader(rawHeader[k] ?? "");
-          synthetic.push(cell ? `${group} ${cell}` : `${group} col${k - i}`);
-        }
-      }
-      i = end;
-      continue;
-    }
-
-    // Stand-alone column header.
-    synthetic.push(trimmed);
-    i++;
-  }
-
-  return synthetic;
-}
+// Fixed positions of columns that have no machine name in row 0.
+const POS = {
+  id: 1,
+  name: 2,
+  devices: 71, // between `hangars` (70) and `fleet` (72)
+  sdShow: 99, // between `released` (98) and `Highlight` (100)
+  highlight: 100,
+  xUpgrade: 103, // between `devices` duplicate (102) and `console_t` duplicate (104)
+} as const;
 
 interface ColumnIndex {
+  /** Column index for a machine-readable header name, or -1 if not present. */
   find(name: string): number;
+  /** Column index for `name`, throwing if absent. */
   required(name: string): number;
-  has(name: string): boolean;
 }
 
-function buildColumnIndex(rawHeader: string[]): ColumnIndex {
-  const synthetic = buildSyntheticHeader(rawHeader);
+function buildColumnIndex(headerRow: string[]): ColumnIndex {
+  // First-occurrence wins: the ImportShips tab duplicates `console_t/e/s` and
+  // a few others near the end of the row. We always want the first (canonical)
+  // position.
   const map = new Map<string, number>();
-  const counts = new Map<string, number>();
-  for (let i = 0; i < synthetic.length; i++) {
-    const key = synthetic[i];
-    const n = counts.get(key) ?? 0;
-    counts.set(key, n + 1);
-    const uniqueKey = n === 0 ? key : `${key} (${n + 1})`;
-    map.set(uniqueKey, i);
+  for (let i = 0; i < headerRow.length; i++) {
+    const key = headerRow[i].trim();
+    if (key && !map.has(key)) map.set(key, i);
   }
   return {
     find(name: string): number {
@@ -215,148 +147,147 @@ function buildColumnIndex(rawHeader: string[]): ColumnIndex {
       }
       return i;
     },
-    has(name: string): boolean {
-      return map.has(name);
-    },
   };
 }
 
 export function parseShips(csvText: string): Ship[] {
   const rows = parseCsv(csvText);
-  if (rows.length < 2) return [];
+  if (rows.length < 3) return [];
 
   const cols = buildColumnIndex(rows[0]);
 
-  // Resolve every column once, up front. Failing fast here makes upstream
-  // schema changes obvious at load time rather than via silent nulls.
+  // Resolve every column index once, up front. Failing fast here makes
+  // upstream schema changes obvious at load time rather than via silent nulls.
   const C = {
-    id: cols.required("ID"),
-    nameTop: cols.find("Name"), // the "Current filter: ... Name" cell at the start
-    releaseDate: cols.required("Acquisition Release (PC)"),
-    year: cols.required("Year"),
-    month: cols.required("Month"),
-    origSource: cols.required("Orig Source"),
-    source: cols.required("Source"),
-    bundles: cols.required("Bundle(s)"),
-    starterBundle: cols.required("Starter Bundle"),
-    faction: cols.required("Faction"),
-    origin: cols.required("Origin"),
-    family: cols.required("Family"),
-    masteryPackage: cols.required("Ship Role Mastery Package"),
-    typeSimplified: cols.required("Ship Type (Simplified)"),
-    typeDetailed: cols.required("Ship Type (Detailed)"),
-    hsTac: cols.required("Highest Seats Tac"),
-    hsEng: cols.required("Highest Seats Eng"),
-    hsSci: cols.required("Highest Seats Sci"),
-    hsUni: cols.required("Highest Seats Uni"),
-    hsInt: cols.required("Highest Seats Int"),
-    hsCmd: cols.required("Highest Seats Cmd"),
-    hsPil: cols.required("Highest Seats Pil"),
-    hsTmp: cols.required("Highest Seats Tmp"),
-    hsMW: cols.required("Highest Seats MW"),
-    hsFull: cols.required("Highest Seats Full"),
-    maTac: cols.required("Max Ability Counts Tac"),
-    maEng: cols.required("Max Ability Counts Eng"),
-    maSci: cols.required("Max Ability Counts Sci"),
-    maInt: cols.required("Max Ability Counts Int"),
-    maCmd: cols.required("Max Ability Counts Cmd"),
-    maPil: cols.required("Max Ability Counts Pil"),
-    maTmp: cols.required("Max Ability Counts Tmp"),
-    maMW: cols.required("Max Ability Counts MW"),
-    specCount: cols.required("Spec Details Specs"),
-    specSeats: cols.required("Spec Details Spec Seats"),
-    specSlots: cols.required("Spec Details Spec Slots"),
-    defenseHullMod: cols.required("Defense Hull Mod"),
-    hull: cols.required("Hull"),
-    shieldMod: cols.required("Shield Mod"),
-    turn: cols.required("Mobility Turn"),
-    imp: cols.required("Mobility Imp"),
-    inrt: cols.required("Mobility Inrt"),
-    pbW: cols.required("Power Bonus W"),
-    pbS: cols.required("Power Bonus S"),
-    pbE: cols.required("Power Bonus E"),
-    pbA: cols.required("Power Bonus A"),
-    boff1Rank: cols.required("Boff 1 rank"),
-    boff2Rank: cols.required("Boff 2 rank"),
-    boff3Rank: cols.required("Boff 3 rank"),
-    boff4Rank: cols.required("Boff 4 rank"),
-    boff5Rank: cols.required("Boff 5 rank"),
-    boff6Rank: cols.required("Boff 6 rank"),
-    weaponsTotal: cols.required("Weapons F + A"),
-    weaponsFore: cols.required("Weapons F + A Fore"),
-    weaponsAft: cols.required("Weapons F + A Aft"),
-    weaponsDHC: cols.required("Weapons F + A DHC"),
-    weaponsExp: cols.required("Weapons F + A Exp"),
-    hangars: cols.required("Misc Equips Hangars"),
-    deviceSlots: cols.required("Misc Equips Dev"),
-    fleetModule: cols.required("Misc Equips Fleet"),
-    consoleTac: cols.required("Consoles T"),
-    consoleEng: cols.required("Consoles E"),
-    consoleSci: cols.required("Consoles S"),
-    consoleUni: cols.required("Consoles U"),
-    ccWeapon: cols.required("Cruiser Commands Weapon"),
-    ccShield: cols.required("Cruiser Commands Shield"),
-    ccEngine: cols.required("Cruiser Commands Engine"),
-    ccThreat: cols.required("Cruiser Commands Threat"),
-    sfSecDef: cols.required("Science Features Sec Def"),
-    sfSubTarget: cols.required("Science Features Sub Targeting"),
-    sfSensor: cols.required("Science Features Sensor Analysis"),
-    sfTacMode: cols.required("Science Features Tac Mode"),
-    mfSingularity: cols.required("Misc Featrues Singularity"),
-    mfCloak: cols.required("Misc Featrues Cloak"),
-    mfFlanking: cols.required("Misc Featrues Flanking"),
-    mfWingmen: cols.required("Misc Featrues Wingmen"),
-    traitName: cols.required("Trait Name"),
-    traitSummary: cols.required("Trait Summary"),
-    xUpgrade: cols.required("X-Upgrades"),
-    career: cols.required("Career"),
-    wikiUrl: cols.required("Wiki URL"),
-    wikiName: cols.required("Name (2)"), // the later standalone "Name" column (wiki label)
-    traitUrl: cols.required("Trait URL"),
-    consoleName: cols.required("Console Name"),
-    consoleUrl: cols.required("Console URL"),
+    releaseDate: cols.required("release_date"),
+    year: cols.required("year"),
+    month: cols.required("month"),
+    origSource: cols.required("source_orig"),
+    source: cols.required("source"),
+    bundles: cols.required("bundle"),
+    starterBundle: cols.required("starter_bundle"),
+    faction: cols.required("faction"),
+    origin: cols.required("origin"),
+    family: cols.required("family"),
+    masteryPackage: cols.required("mastery_package"),
+    typeSimplified: cols.required("ship_type"),
+    typeDetailed: cols.required("ship_type_detailed"),
+    maxT: cols.required("max_t"),
+    maxE: cols.required("max_e"),
+    maxS: cols.required("max_s"),
+    maxU: cols.required("max_u"),
+    maxInt: cols.required("max_int"),
+    maxCmd: cols.required("max_cmd"),
+    maxPil: cols.required("max_pil"),
+    maxTmp: cols.required("max_tmp"),
+    maxMW: cols.required("max_mw"),
+    full: cols.required("full"),
+    totalTac: cols.required("total_tac"),
+    totalEng: cols.required("total_eng"),
+    totalSci: cols.required("total_sci"),
+    totalInt: cols.required("total_int"),
+    totalCmd: cols.required("total_cmd"),
+    totalPil: cols.required("total_pil"),
+    totalTmp: cols.required("total_tmp"),
+    totalMW: cols.required("total_mw"),
+    specCount: cols.required("num_specs"),
+    specSeats: cols.required("num_spec_seats"),
+    specSlots: cols.required("num_spec_slots"),
+    hMod: cols.required("h_mod"),
+    hull: cols.required("hull"),
+    sMod: cols.required("s_mod"),
+    turn: cols.required("turn"),
+    imp: cols.required("imp"),
+    inrt: cols.required("inrt"),
+    powerW: cols.required("power_w"),
+    powerS: cols.required("power_s"),
+    powerE: cols.required("power_e"),
+    powerA: cols.required("power_a"),
+    b1r: cols.required("b1r"),
+    b1c: cols.required("b1c"),
+    b1s: cols.required("b1s"),
+    b2r: cols.required("b2r"),
+    b2c: cols.required("b2c"),
+    b2s: cols.required("b2s"),
+    b3r: cols.required("b3r"),
+    b3c: cols.required("b3c"),
+    b3s: cols.required("b3s"),
+    b4r: cols.required("b4r"),
+    b4c: cols.required("b4c"),
+    b4s: cols.required("b4s"),
+    b5r: cols.required("b5r"),
+    b5c: cols.required("b5c"),
+    b5s: cols.required("b5s"),
+    b6r: cols.required("b6r"),
+    b6c: cols.required("b6c"),
+    b6s: cols.required("b6s"),
+    weaponTotal: cols.required("weapon_total"),
+    fore: cols.required("fore"),
+    aft: cols.required("aft"),
+    dhc: cols.required("dhc"),
+    exp: cols.required("exp"),
+    hangars: cols.required("hangars"),
+    fleet: cols.required("fleet"),
+    consoleT: cols.required("console_t"),
+    consoleE: cols.required("console_e"),
+    consoleS: cols.required("console_s"),
+    consoleU: cols.required("console_u"),
+    ccW: cols.required("cc_w"),
+    ccS: cols.required("cc_s"),
+    ccE: cols.required("cc_e"),
+    ccT: cols.required("cc_t"),
+    secdef: cols.required("secdef"),
+    subTargeting: cols.required("sub_targeting"),
+    sensorAnalysis: cols.required("sensor_analysis"),
+    tacMode: cols.required("tac_mode"),
+    singularity: cols.required("singularity"),
+    cloak: cols.required("cloak"),
+    flank: cols.required("flank"),
+    wingmen: cols.required("wingmen"),
+    traitSummary: cols.required("trait_summary"),
+    released: cols.required("released"),
+    career: cols.required("career"),
+    traitName: cols.required("trait_name"),
+    traitUrl: cols.required("trait_url"),
+    consoleName: cols.required("console_name"),
+    consoleUrl: cols.required("console_url"),
+    wikiUrl: cols.required("wiki_url"),
   } as const;
 
-  // The "Highest Seats Full" column (index 25 in current layout) holds the
-  // primary spec token (e.g. "Tmp"). Preserve that mapping under a clearer
-  // alias - the legacy parser read r[25].
-  const primarySpecIdx = C.hsFull;
-
-  const dataRows = rows.slice(1).filter((r) => r.some((c) => c !== ""));
+  // Skip header rows (row 0 = names, row 1 = numeric pointers).
+  const dataRows = rows.slice(2);
 
   const ships: Ship[] = [];
   for (const r of dataRows) {
-    const idRaw = r[C.id];
+    const idRaw = r[POS.id];
     if (!idRaw) continue;
     const id = num(idRaw, NaN);
     if (!Number.isFinite(id)) continue;
 
+    // Row-level filter: only keep released ships, and for Science Destroyers
+    // only the base row (SD_SHOW=TRUE) - skip the duplicate Tactical/Science
+    // Mode variants.
+    const released = r[C.released] === "TRUE";
+    const sdShow = r[POS.sdShow] === "TRUE";
+    if (!released || !sdShow) continue;
+
     const boffs: BoffStation[] = [];
-    const boffRankCols = [
-      C.boff1Rank,
-      C.boff2Rank,
-      C.boff3Rank,
-      C.boff4Rank,
-      C.boff5Rank,
-      C.boff6Rank,
+    const boffTriples: [number, number, number][] = [
+      [C.b1r, C.b1c, C.b1s],
+      [C.b2r, C.b2c, C.b2s],
+      [C.b3r, C.b3c, C.b3s],
+      [C.b4r, C.b4c, C.b4s],
+      [C.b5r, C.b5c, C.b5s],
+      [C.b6r, C.b6c, C.b6s],
     ];
-    for (const base of boffRankCols) {
-      const station = parseBoff(r, base);
+    for (const [rankIdx, careerIdx, specIdx] of boffTriples) {
+      const station = parseBoffFromFields(r[rankIdx], r[careerIdx], r[specIdx]);
       if (station) boffs.push(station);
     }
 
-    const primarySpec = asSpec(r[primarySpecIdx]);
-
-    // The first "Name" column has a filter-banner prefix in the header but
-    // the data cell is just the ship name. Prefer it, fall back to the
-    // standalone wiki "Name" column.
-    const topName = C.nameTop >= 0 ? (r[C.nameTop] ?? "") : "";
-    const traitNameCell = r[C.traitName] ?? "";
-    const consoleNameCell = r[C.consoleName] ?? "";
-
     const ship: Ship = {
       id,
-      name: topName || r[C.wikiName] || "",
+      name: (r[POS.name] ?? "").trim(),
       releaseDate: r[C.releaseDate] ?? "",
       year: numOrNull(r[C.year]),
       month: numOrNull(r[C.month]),
@@ -372,91 +303,93 @@ export function parseShips(csvText: string): Ship[] {
       typeDetailed: r[C.typeDetailed] ?? "",
       career: asCareer(r[C.career]),
       highestSeats: {
-        tac: num(r[C.hsTac]),
-        eng: num(r[C.hsEng]),
-        sci: num(r[C.hsSci]),
-        uni: num(r[C.hsUni]),
-        int: num(r[C.hsInt]),
-        cmd: num(r[C.hsCmd]),
-        pil: num(r[C.hsPil]),
-        tmp: num(r[C.hsTmp]),
-        mw: num(r[C.hsMW]),
-        primarySpec,
+        tac: num(r[C.maxT]),
+        eng: num(r[C.maxE]),
+        sci: num(r[C.maxS]),
+        uni: num(r[C.maxU]),
+        int: num(r[C.maxInt]),
+        cmd: num(r[C.maxCmd]),
+        pil: num(r[C.maxPil]),
+        tmp: num(r[C.maxTmp]),
+        mw: num(r[C.maxMW]),
+        primarySpec: asSpec(r[C.full]),
       },
       maxAbility: {
-        tac: num(r[C.maTac]),
-        eng: num(r[C.maEng]),
-        sci: num(r[C.maSci]),
-        int: num(r[C.maInt]),
-        cmd: num(r[C.maCmd]),
-        pil: num(r[C.maPil]),
-        tmp: num(r[C.maTmp]),
-        mw: num(r[C.maMW]),
+        tac: num(r[C.totalTac]),
+        eng: num(r[C.totalEng]),
+        sci: num(r[C.totalSci]),
+        int: num(r[C.totalInt]),
+        cmd: num(r[C.totalCmd]),
+        pil: num(r[C.totalPil]),
+        tmp: num(r[C.totalTmp]),
+        mw: num(r[C.totalMW]),
       },
       specCount: num(r[C.specCount]),
       specSeats: num(r[C.specSeats]),
       specSlots: num(r[C.specSlots]),
-      defenseHullMod: num(r[C.defenseHullMod]),
+      defenseHullMod: num(r[C.hMod]),
       hull: num(r[C.hull]),
-      shieldMod: num(r[C.shieldMod]),
+      shieldMod: num(r[C.sMod]),
       mobility: {
         turn: num(r[C.turn]),
         impulseMod: num(r[C.imp]),
         inertia: num(r[C.inrt]),
       },
       powerBonus: {
-        weapons: num(r[C.pbW]),
-        shields: num(r[C.pbS]),
-        engines: num(r[C.pbE]),
-        aux: num(r[C.pbA]),
+        weapons: num(r[C.powerW]),
+        shields: num(r[C.powerS]),
+        engines: num(r[C.powerE]),
+        aux: num(r[C.powerA]),
       },
       boffs,
       weapons: {
-        total: num(r[C.weaponsTotal]),
-        fore: num(r[C.weaponsFore]),
-        aft: num(r[C.weaponsAft]),
-        dhc: boolYes(r[C.weaponsDHC]),
-        experimental: boolYes(r[C.weaponsExp]),
+        total: num(r[C.weaponTotal]),
+        fore: num(r[C.fore]),
+        aft: num(r[C.aft]),
+        dhc: boolYes(r[C.dhc]),
+        experimental: boolYes(r[C.exp]),
       },
       hangars: num(r[C.hangars]),
-      deviceSlots: num(r[C.deviceSlots]),
-      fleetModule: num(r[C.fleetModule]),
+      deviceSlots: num(r[POS.devices]),
+      fleetModule: boolYes(r[C.fleet]) ? 1 : 0,
       consoles: {
-        tac: num(r[C.consoleTac]),
-        eng: num(r[C.consoleEng]),
-        sci: num(r[C.consoleSci]),
-        uni: num(r[C.consoleUni]),
+        tac: num(r[C.consoleT]),
+        eng: num(r[C.consoleE]),
+        sci: num(r[C.consoleS]),
+        uni: num(r[C.consoleU]),
       },
       cruiserCommands: {
-        weapon: boolYes(r[C.ccWeapon]),
-        shield: boolYes(r[C.ccShield]),
-        engine: boolYes(r[C.ccEngine]),
-        threat: boolYes(r[C.ccThreat]),
+        weapon: boolYes(r[C.ccW]),
+        shield: boolYes(r[C.ccS]),
+        engine: boolYes(r[C.ccE]),
+        threat: boolYes(r[C.ccT]),
       },
       scienceFeatures: {
-        secondaryDeflector: boolYes(r[C.sfSecDef]),
-        subsystemTargeting: boolYes(r[C.sfSubTarget]),
-        sensorAnalysis: boolYes(r[C.sfSensor]),
-        tacMode: boolYes(r[C.sfTacMode]),
+        secondaryDeflector: boolYes(r[C.secdef]),
+        subsystemTargeting: boolYes(r[C.subTargeting]),
+        sensorAnalysis: boolYes(r[C.sensorAnalysis]),
+        tacMode: boolYes(r[C.tacMode]),
       },
       miscFeatures: {
-        singularity: boolYes(r[C.mfSingularity]),
-        cloak: boolYes(r[C.mfCloak]),
-        flankingPct: num(r[C.mfFlanking]),
-        wingmen: boolYes(r[C.mfWingmen]),
+        singularity: boolYes(r[C.singularity]),
+        cloak: boolYes(r[C.cloak]),
+        flankingPct: num(r[C.flank]),
+        wingmen: boolYes(r[C.wingmen]),
       },
       trait:
-        traitNameCell !== ""
+        (r[C.traitName] ?? "").trim() !== ""
           ? {
-              name: traitNameCell,
+              name: r[C.traitName] ?? "",
               summary: r[C.traitSummary] ?? "",
               url: r[C.traitUrl] ?? "",
             }
           : null,
       universalConsole:
-        consoleNameCell !== "" ? { name: consoleNameCell, url: r[C.consoleUrl] ?? "" } : null,
+        (r[C.consoleName] ?? "").trim() !== ""
+          ? { name: r[C.consoleName] ?? "", url: r[C.consoleUrl] ?? "" }
+          : null,
       wikiUrl: r[C.wikiUrl] ?? "",
-      xUpgrade: boolYes(r[C.xUpgrade]),
+      xUpgrade: (r[POS.xUpgrade] ?? "").trim().toLowerCase() === "yes",
     };
     ships.push(ship);
   }

@@ -32,136 +32,165 @@ describe("parseCsv", () => {
 });
 
 describe("parseShips", () => {
-  // A tiny fixture that mirrors the real sheet's header layout. Only the
-  // columns the parser reads are meaningful; the rest are padded as "".
-  function makeFixtureCsv(ships: ReadonlyArray<Record<string, string>>): string {
-    const header = [
-      "x", // 0
-      "ID", // 1
-      "Current filter: 3 of 3 results Name", // 2
-      "Acquisition Release (PC)", // 3
-      "Year", // 4
-      "Month", // 5
-      "Orig Source", // 6
-      "Source", // 7
-      "Bundle(s)", // 8
-      "Starter Bundle", // 9
-      "Faction", // 10
-      "Origin", // 11
-      "Family", // 12
-      "Ship Role Mastery Package", // 13
-      "Ship Type (Simplified)", // 14
-      "Ship Type (Detailed)", // 15
-      "Highest Seats Tac", // 16
-      "Eng",
-      "Sci",
-      "Uni",
-      "Int",
-      "Cmd",
-      "Pil",
-      "Tmp",
-      "MW",
-      "Full", // 25
-      "Max Ability Counts Tac", // 26
-      "Eng",
-      "Sci",
-      "Int",
-      "Cmd",
-      "Pil",
-      "Tmp",
-      "MW", // 33
-      "Spec Details Specs", // 34
-      "Spec Seats",
-      "Spec Slots", // 36
-      "Defense Hull Mod", // 37
-      "Hull", // 38
-      "Shield Mod", // 39
-      "Mobility Turn", // 40
-      "Imp",
-      "Inrt", // 42
-      "Power Bonus W", // 43
-      "S",
-      "E",
-      "A", // 46
-      "Boff 1 ", // 47
-      "",
-      "",
-      "Boff 2 ",
-      "",
-      "",
-      "Boff 3 ",
-      "",
-      "",
-      "Boff 4 ",
-      "",
-      "",
-      "Boff 5 ",
-      "",
-      "",
-      "Boff 6 ",
-      "",
-      "", // 64
-      "Weapons F + A", // 65
-      "Fore",
-      "Aft",
-      "DHC",
-      "Exp", // 69
-      "Misc Equips Hangars", // 70
-      "Dev",
-      "Fleet", // 72
-      "Consoles T", // 73
-      "E",
-      "S",
-      "U", // 76
-      "Cruiser Commands Weapon", // 77
-      "Shield",
-      "Engine",
-      "Threat", // 80
-      "Science Features Sec Def", // 81
-      "Sub Targeting",
-      "Sensor Analysis",
-      "Tac Mode", // 84
-      "Misc Featrues Singularity", // 85
-      "Cloak",
-      "Flanking",
-      "Wingmen", // 88
-      "Trait Name", // 89
-      "Trait Summary", // 90
-      "Universal Console", // 91
-      "Admiralty Card Rarity", // 92
-      "Role",
-      "Eng",
-      "Tac",
-      "Sci",
-      "Bonus", // 97
-      "RELEASED", // 98
-      "SD_SHOW",
-      "Highlight",
-      "U",
-      "Dev",
-      "X-Upgrades", // 103
-      "T",
-      "E",
-      "S",
-      "T_PLUS",
-      "E_PLUS",
-      "S_PLUS",
-      "Career", // 110
-      "Cloak Rank", // 111
-      "Name", // 112
-      "Wiki URL", // 113
-      "Trait", // 114
-      "Trait URL", // 115
-      "Console Name", // 116
-      "Console URL", // 117
-    ];
+  // Mirrors the ImportShips tab layout (118 cols). Header row 0 uses flat
+  // machine-readable column names with a handful of intentionally blank cells
+  // that the parser resolves by fixed position (ID=1, Name=2, Dev=71,
+  // SD_SHOW=99, Highlight=100, X-Upgrades=103). Row 1 is a numeric pointer
+  // row used internally by the Ships tab; the parser ignores it.
+  const HEADER = [
+    "", // 0  (sort key)
+    "", // 1  (ID - unlabeled, numeric)
+    "", // 2  (Name - unlabeled)
+    "release_date", // 3
+    "year", // 4
+    "month", // 5
+    "source_orig", // 6
+    "source", // 7
+    "bundle", // 8
+    "starter_bundle", // 9
+    "faction", // 10
+    "origin", // 11
+    "family", // 12
+    "mastery_package", // 13
+    "ship_type", // 14
+    "ship_type_detailed", // 15
+    "max_t", // 16
+    "max_e",
+    "max_s",
+    "max_u",
+    "max_int",
+    "max_cmd",
+    "max_pil",
+    "max_tmp",
+    "max_mw",
+    "full", // 25
+    "total_tac", // 26
+    "total_eng",
+    "total_sci",
+    "total_int",
+    "total_cmd",
+    "total_pil",
+    "total_tmp",
+    "total_mw", // 33
+    "num_specs", // 34
+    "num_spec_seats",
+    "num_spec_slots", // 36
+    "h_mod", // 37
+    "hull", // 38
+    "s_mod", // 39
+    "turn", // 40
+    "imp",
+    "inrt", // 42
+    "power_w", // 43
+    "power_s",
+    "power_e",
+    "power_a", // 46
+    "b1r", // 47
+    "b1c",
+    "b1s",
+    "b2r",
+    "b2c",
+    "b2s",
+    "b3r",
+    "b3c",
+    "b3s",
+    "b4r",
+    "b4c",
+    "b4s",
+    "b5r",
+    "b5c",
+    "b5s",
+    "b6r",
+    "b6c",
+    "b6s", // 64
+    "weapon_total", // 65
+    "fore",
+    "aft",
+    "dhc",
+    "exp", // 69
+    "hangars", // 70
+    "", // 71  (devices - unlabeled)
+    "fleet", // 72
+    "console_t", // 73
+    "console_e",
+    "console_s",
+    "", // 76  (blank - duplicate slot)
+    "cc_w", // 77
+    "cc_s",
+    "cc_e",
+    "cc_t", // 80
+    "secdef", // 81
+    "sub_targeting",
+    "sensor_analysis",
+    "tac_mode", // 84
+    "singularity", // 85
+    "cloak",
+    "flank",
+    "wingmen", // 88
+    "", // 89 (blank)
+    "trait_summary", // 90
+    "", // 91 (blank)
+    "adm_rarity", // 92
+    "adm_role",
+    "adm_e",
+    "adm_t",
+    "adm_s",
+    "adm_bonus", // 97
+    "released", // 98
+    "", // 99  (SD_SHOW - unlabeled)
+    "", // 100 (Highlight - unlabeled)
+    "console_u", // 101
+    "devices", // 102 (duplicate - unused)
+    "", // 103 (X-Upgrades - unlabeled)
+    "console_t", // 104 (duplicate - unused, first occurrence wins)
+    "console_e", // 105
+    "console_s", // 106
+    "", // 107 (T_PLUS)
+    "", // 108 (E_PLUS)
+    "", // 109 (S_PLUS)
+    "career", // 110
+    "cloak_rank", // 111
+    "name", // 112 (duplicate name column - unused)
+    "wiki_url", // 113
+    "trait_name", // 114
+    "trait_url", // 115
+    "console_name", // 116
+    "console_url", // 117
+  ];
 
-    const rows: string[] = [header.map(csvEscape).join(",")];
+  // Row 1 is the numeric pointer row from the real sheet. Contents don't
+  // matter to the parser (it's skipped) - just pad with empties.
+  const POINTER_ROW: string[] = Array.from({ length: HEADER.length }, () => "");
+
+  interface TestShip {
+    id?: string;
+    name?: string;
+    releaseDate?: string;
+    faction?: string;
+    typeSimplified?: string;
+    hull?: string;
+    weaponsTotal?: string;
+    weaponsFore?: string;
+    weaponsAft?: string;
+    hangars?: string;
+    consoleT?: string;
+    consoleE?: string;
+    consoleS?: string;
+    consoleU?: string;
+    traitName?: string;
+    traitSummary?: string;
+    career?: string;
+    released?: string; // defaults to "TRUE"
+    sdShow?: string; // defaults to "TRUE"
+  }
+
+  function makeFixtureCsv(ships: ReadonlyArray<TestShip>): string {
+    const rows: string[] = [HEADER.map(csvEscape).join(","), POINTER_ROW.map(csvEscape).join(",")];
     for (const data of ships) {
-      const row: string[] = Array.from({ length: header.length }, () => "");
-      const indexOf = (name: string): number => header.indexOf(name);
-      row[indexOf("ID")] = data.id ?? "";
+      const row: string[] = Array.from({ length: HEADER.length }, () => "");
+      row[1] = data.id ?? "";
       row[2] = data.name ?? "";
+      row[3] = data.releaseDate ?? "";
       row[10] = data.faction ?? "";
       row[14] = data.typeSimplified ?? "";
       row[38] = data.hull ?? "";
@@ -172,12 +201,12 @@ describe("parseShips", () => {
       row[73] = data.consoleT ?? "";
       row[74] = data.consoleE ?? "";
       row[75] = data.consoleS ?? "";
-      row[76] = data.consoleU ?? "";
-      row[89] = data.traitName ?? "";
-      row[90] = data.traitSummary ?? "";
+      row[98] = data.released ?? "TRUE";
+      row[99] = data.sdShow ?? "TRUE";
+      row[101] = data.consoleU ?? "";
       row[110] = data.career ?? "";
-      row[112] = data.wikiName ?? "";
-      row[113] = data.wikiUrl ?? "";
+      row[114] = data.traitName ?? "";
+      row[90] = data.traitSummary ?? "";
       rows.push(row.map(csvEscape).join(","));
     }
     return rows.join("\n") + "\n";
@@ -258,6 +287,26 @@ describe("parseShips", () => {
 
     expect(science.consoles.sci).toBe(5);
     expect(science.weapons.fore).toBe(4);
+  });
+
+  it("drops rows where released != TRUE", () => {
+    const csv = makeFixtureCsv([
+      { id: "200", name: "Released", released: "TRUE" },
+      { id: "201", name: "Unreleased", released: "" },
+      { id: "202", name: "FalseReleased", released: "FALSE" },
+    ]);
+    const ships = parseShips(csv);
+    expect(ships.map((s) => s.name)).toEqual(["Released"]);
+  });
+
+  it("drops rows where SD_SHOW != TRUE (Science Destroyer alt modes)", () => {
+    const csv = makeFixtureCsv([
+      { id: "300", name: "Base SD", sdShow: "TRUE" },
+      { id: "301", name: "SD (Tactical Mode)", sdShow: "FALSE" },
+      { id: "302", name: "SD (Science Mode)", sdShow: "FALSE" },
+    ]);
+    const ships = parseShips(csv);
+    expect(ships.map((s) => s.name)).toEqual(["Base SD"]);
   });
 
   it("parses the real ships.csv snapshot", async () => {
